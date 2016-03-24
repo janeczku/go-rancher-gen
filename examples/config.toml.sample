@@ -1,0 +1,17 @@
+metadata-version = "latest"
+include-inactive = false
+log-level = "debug"
+interval = 60
+onetime = false
+
+[[template]]
+source = "/etc/rancher-gen/nginx.tmpl"
+dest = "/etc/nginx/nginx.conf"
+notify-cmd = "/usr/sbin/nginx -s reload"
+notify-output = false
+
+[[template]]
+source = "/etc/rancher-gen/apache.tmpl"
+dest = "/etc/apache2/sites-available/default"
+notify-cmd = "/usr/sbin/apachectl graceful"
+notify-output = false

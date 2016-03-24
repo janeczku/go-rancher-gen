@@ -1,0 +1,24 @@
+{
+	"ImportPath": "github.com/janeczku/rancher-gen",
+	"GoVersion": "go1.5",
+	"Deps": [
+		{
+			"ImportPath": "github.com/BurntSushi/toml",
+			"Comment": "v0.1.0-46-gbbd5bb6",
+			"Rev": "bbd5bb678321a0d6e58f1099321dfa73391c1b6f"
+		},
+		{
+			"ImportPath": "github.com/Sirupsen/logrus",
+			"Comment": "v0.10.0",
+			"Rev": "4b6ea7319e214d98c938f12692336f7ca9348d6b"
+		},
+		{
+			"ImportPath": "github.com/rancher/go-rancher-metadata/metadata",
+			"Rev": "3336d4004ef4ad0809bf7131124a74b90f5bfa40"
+		},
+		{
+			"ImportPath": "golang.org/x/sys/unix",
+			"Rev": "eb2c74142fd19a79b3f237334c7384d5167b1b46"
+		}
+	]
+}

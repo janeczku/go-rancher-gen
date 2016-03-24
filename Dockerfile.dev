@@ -1,0 +1,12 @@
+FROM alpine:edge
+MAINTAINER Jan Broer <jan@festplatte.eu.org>
+
+RUN apk add --no-cache ca-certificates
+
+ADD build/rancher-template-linux-amd64 /usr/local/bin/rancher-template
+RUN chmod +x /usr/local/bin/rancher-template
+
+COPY ./test /etc/rancher-template/
+
+ENTRYPOINT ["/usr/local/bin/rancher-template"]
+CMD ["--config", "/etc/rancher-template/config.toml"]
