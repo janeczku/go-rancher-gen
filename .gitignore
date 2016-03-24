@@ -1,0 +1,8 @@
+/bin
+/build
+/dist
+/artifacts
+/test
+rancher-template*
+secrets.txt
+.DS_Store
