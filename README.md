@@ -1,6 +1,6 @@
 Rancher Template
 ===============
-[![Latest Version](https://img.shields.io/badge/release-0.1.0-green.svg?style=flat)][release] [![CircleCI](https://img.shields.io/circleci/project/janeczku/rancher-template.svg)][circleci] [![Docker Pulls](https://img.shields.io/docker/pulls/janeczku/rancher-template.svg)](https://hub.docker.com/r/janeczku/rancher-template/) ![License MIT](https://img.shields.io/badge/license-MIT-blue.svg?style=flat)
+[![Latest Version](https://img.shields.io/badge/release-0.1.1-green.svg?style=flat)][release] [![CircleCI](https://img.shields.io/circleci/project/janeczku/rancher-template.svg)][circleci] [![Docker Pulls](https://img.shields.io/docker/pulls/janeczku/rancher-template.svg)](https://hub.docker.com/r/janeczku/rancher-template/) ![License MIT](https://img.shields.io/badge/license-MIT-blue.svg?style=flat)
 
 [release]: https://github.com/janeczku/rancher-template/releases
 [circleci]: https://circleci.com/gh/janeczku/rancher-template
