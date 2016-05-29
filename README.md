@@ -112,6 +112,7 @@ type Host struct {
 	UUID        string
 	Name        string
 	Address     string
+	Hostname    string
 	Labels      LabelMap
 }
 ```

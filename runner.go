@@ -183,10 +183,11 @@ func (r *runner) createContext() (*TemplateContext, error) {
 	hosts := make([]Host, 0)
 	for _, h := range metaHosts {
 		host := Host{
-			UUID:    h.UUID,
-			Name:    h.Name,
-			Address: h.AgentIP,
-			Labels:  LabelMap(h.Labels),
+			UUID:     h.UUID,
+			Name:     h.Name,
+			Address:  h.AgentIP,
+			Hostname: h.Hostname,
+			Labels:   LabelMap(h.Labels),
 		}
 		hosts = append(hosts, host)
 	}
