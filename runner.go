@@ -37,11 +37,11 @@ func NewRunner(conf *Config) (*runner, error) {
 	u, _ := url.Parse(MetadataURL)
 	u.Path = path.Join(u.Path, conf.MetadataVersion)
 
-	log.Infof("Connecting to Rancher metadata service: %s", u.String())
+	log.Infof("Establishing connection to Rancher Metadata API: %s", u.String())
 
 	client, err := metadata.NewClientAndWait(u.String())
 	if err != nil {
-		return nil, fmt.Errorf("Could not connect to Rancher metadata service: %v", err)
+		return nil, fmt.Errorf("Could not connect to Rancher Metadata API: %v", err)
 	}
 
 	c := make(chan os.Signal, 1)
@@ -57,59 +57,66 @@ func NewRunner(conf *Config) (*runner, error) {
 
 func (r *runner) Run() error {
 	if r.Config.Onetime {
-		r.Config.Interval = 1
+		log.Debug("Onetime mode")
+		return r.poll()
 	}
 
-	log.Debug("Entering poll loop")
-
+	log.Debugf("Polling metadata with %d secs interval", r.Config.Interval)
 	ticker := time.NewTicker(time.Duration(r.Config.Interval) * time.Second)
 	defer ticker.Stop()
-
 	for {
+		if err := r.poll(); err != nil {
+			return err
+		}
+
+		log.Info("Waiting for changes in metadata...")
 		select {
 		case <-ticker.C:
-			log.Debug("Checking if metadata has changed")
-			newVersion, err := r.Client.GetVersion()
-			if err != nil {
-				log.Warnf("Failed to query metadata version: %v", err)
-				continue
-			}
-
-			if r.Version == newVersion {
-				log.Debug("No changes in metadata")
-				continue
-			}
-
-			log.Debug("Metadata version changed")
-			log.Debugf("Old version: %s", r.Version)
-			log.Debugf("New version: %s", newVersion)
-
-			r.Version = newVersion
-
-			ctx, err := r.createContext()
-			if err != nil {
-				log.Warnf("Failed to fetch metadata: %v", err)
-				continue
-			}
-
-			tmplFuncs := newFuncMap(ctx)
-
-			for _, tmpl := range r.Config.Templates {
-				if err := r.processTemplate(tmplFuncs, tmpl); err != nil {
-					return err
-				}
-			}
-
-			if r.Config.Onetime {
-				return nil
-			}
-
 		case signal := <-r.quitChan:
 			log.Info("Exit requested by signal: ", signal)
 			return nil
 		}
 	}
 }
+
+func (r *runner) poll() error {
+	log.Debug("Checking if metadata has changed")
+	newVersion, err := r.Client.GetVersion()
+	if err != nil {
+		log.Warnf("Failed to retrieve metadata version: %v", err)
+		return nil
+	}
+
+	if r.Version == newVersion {
+		log.Debug("No changes in metadata")
+		return nil
+	}
+
+	log.Debug("Metadata version changed")
+	log.Debugf("Old version: %s", r.Version)
+	log.Debugf("New version: %s", newVersion)
+
+	r.Version = newVersion
+	ctx, err := r.createContext()
+	if err != nil {
+		log.Warnf("Failed to retrieve metadata: %v", err)
+		return nil
+	}
+
+	tmplFuncs := newFuncMap(ctx)
+	for _, tmpl := range r.Config.Templates {
+		if err := r.processTemplate(tmplFuncs, tmpl); err != nil {
+			return err
+		}
+	}
+
+	if !r.Config.Onetime {
+		log.Info("Processed templates. Waiting for changes in metadata...")
+	}
+
+	return nil
+}
+
 
 func (r *runner) processTemplate(funcs template.FuncMap, t Template) error {
 	log.Debugf("Processing template %s", t.Source)

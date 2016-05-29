@@ -8,6 +8,8 @@ import (
 	"strings"
 	"text/template"
 	"time"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 func newFuncMap(ctx *TemplateContext) template.FuncMap {
@@ -38,30 +40,40 @@ func newFuncMap(ctx *TemplateContext) template.FuncMap {
 
 // serviceFunc returns a single service given a string argument in the form
 // <service-name>[.<stack-name>].
-func serviceFunc(ctx *TemplateContext) func(...string) (Service, error) {
-	return func(s ...string) (Service, error) {
-		return ctx.GetService(s...)
+func serviceFunc(ctx *TemplateContext) func(...string) (interface{}, error) {
+	return func(s ...string) (result interface{}, err error) {
+		result, err = ctx.GetService(s...)
+		if _, ok := err.(NotFoundError); ok {
+			log.Debug(err)
+			return nil, nil
+		}
+		return
 	}
 }
 
 // servicesFunc returns all available services, optionally filtered by stack
 // name or label values.
-func servicesFunc(ctx *TemplateContext) func(...string) ([]Service, error) {
-	return func(s ...string) ([]Service, error) {
+func servicesFunc(ctx *TemplateContext) func(...string) (interface{}, error) {
+	return func(s ...string) (interface{}, error) {
 		return ctx.GetServices(s...)
 	}
 }
 
 // hostFunc returns a single host given it's UUID.
-func hostFunc(ctx *TemplateContext) func(...string) (Host, error) {
-	return func(s ...string) (Host, error) {
-		return ctx.GetHost(s...)
+func hostFunc(ctx *TemplateContext) func(...string) (interface{}, error) {
+	return func(s ...string) (result interface{}, err error) {
+		result, err = ctx.GetHost(s...)
+		if _, ok := err.(NotFoundError); ok {
+			log.Debug(err)
+			return nil, nil
+		}
+		return
 	}
 }
 
 // hostsFunc returns all available hosts, optionally filtered by label value.
-func hostsFunc(ctx *TemplateContext) func(...string) ([]Host, error) {
-	return func(s ...string) ([]Host, error) {
+func hostsFunc(ctx *TemplateContext) func(...string) (interface{}, error) {
+	return func(s ...string) (interface{}, error) {
 		return ctx.GetHosts(s...)
 	}
 }
