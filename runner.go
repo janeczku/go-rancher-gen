@@ -117,7 +117,6 @@ func (r *runner) poll() error {
 	return nil
 }
 
-
 func (r *runner) processTemplate(funcs template.FuncMap, t Template) error {
 	log.Debugf("Processing template %s", t.Source)
 

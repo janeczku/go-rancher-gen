@@ -7,11 +7,11 @@ import (
 )
 
 type NotFoundError struct {
-    msg string
+	msg string
 }
 
 func (e NotFoundError) Error() string {
-    return e.msg
+	return e.msg
 }
 
 type TemplateContext struct {
@@ -38,7 +38,7 @@ func (c *TemplateContext) GetHost(v ...string) (Host, error) {
 		}
 	}
 
-	return Host{}, NotFoundError{"(host) could not find host by UUID: "+uuid}
+	return Host{}, NotFoundError{"(host) could not find host by UUID: " + uuid}
 }
 
 // GetService returns the service matching the given name.
@@ -73,7 +73,7 @@ func (c *TemplateContext) GetService(v ...string) (Service, error) {
 		}
 	}
 
-	return Service{}, NotFoundError{"(service) could not find service by identifier: "+identifier}
+	return Service{}, NotFoundError{"(service) could not find service by identifier: " + identifier}
 }
 
 func (c *TemplateContext) GetHosts(selectors ...string) ([]Host, error) {
