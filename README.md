@@ -189,7 +189,7 @@ Label foo: {{.Labels.GetValue "foo" "default value"}}
 
 ### Service Discovery Functions
 
-#### `host`
+### `host`
 
 Lookup a specific host
 
@@ -204,7 +204,7 @@ If the argument is omitted the local host is returned:
 {{host}}
 ```
 
-#### `hosts`
+### `hosts`
 
 Lookup hosts
 
@@ -248,7 +248,7 @@ If the argument is omitted all hosts are returned:
 {{hosts}}
 ```
 
-#### `service`
+### `service`
 
 Lookup a specific service
 
@@ -274,7 +274,7 @@ http://10.12.20.111:9090
 http://10.12.20.122:9090
 ```
 
-The syntax o the serviceIdentifier parameter is `service-name[.stack-name]`:
+The syntax of the serviceIdentifier parameter is `service-name[.stack-name]`:
 
 ```liquid
 {{service "web.production"}}
@@ -292,7 +292,7 @@ If no argument is given the local service is returned:
 {{service}}
 ```
 
-#### `services`
+### `services`
 
 Lookup services matching the given stack and label selectors
 
@@ -328,7 +328,7 @@ If arguments are omitted then all services are returned:
 
 ### Helper Functions and Pipes
 
-#### `whereLabelExists`
+### `whereLabelExists`
 
 Filter a slice of hosts, services or containers returning the items that have the given label key.
 
@@ -338,7 +338,7 @@ input *[]Host, []Service or []Container*
 **Return Type**   
 same as input
 
-#### `whereLabelEquals`
+### `whereLabelEquals`
 
 Filter a slice of hosts, services or containers returning the items that have the given label key and value.
 
@@ -356,7 +356,7 @@ same as input
 {{end}}
 ```
 
-#### `whereLabelMatches`
+### `whereLabelMatches`
 
 Filter a slice of hosts, services or containers returning the items that have the given label and a value matching the regex pattern.
 
@@ -367,7 +367,7 @@ input *[]Host, []Service or []Container*
 **Return Type**   
 same as input
 
-#### `groupByLabel`
+### `groupByLabel`
 
 This function takes a slice of hosts, services or containers and groups the items by their value of the given label. It returns a map with label values as key and a slice of corresponding elements items as value.
 
@@ -386,7 +386,7 @@ IP: {{.Address}}
 {{end}}
 ```
 
-#### `base`
+### `base`
 
 Alias for the path.Base function
 
@@ -396,13 +396,13 @@ filename: {{$service.Metadata.GetValue "targetPath" | base}}
 
 See Go's [path.Base()](https://golang.org/pkg/path/#Base) for more information.
 
-#### `dir`
+### `dir`
 
 Alias for the path.Dir function
 
 See Go's [path.Dir()](https://golang.org/pkg/path/#Dir) for more information.
 
-#### `env`
+### `env`
 
 Returns the value of the given environment variable or an empty string if the variable isn't set
 
@@ -410,7 +410,7 @@ Returns the value of the given environment variable or an empty string if the va
 {{env "FOO_VAR"}}
 ```
 
-#### `timestamp`
+### `timestamp`
 
 Alias for time.Now
 
@@ -426,7 +426,7 @@ The timestamp can be formatted as required by invoking the `Format` method:
 
 See Go's [time.Format()](http://golang.org/pkg/time/#Time.Format) for more information about formatting the date according to the layout of the reference time.
 
-#### `split`
+### `split`
 
 Alias for strings.Split
 
@@ -436,7 +436,7 @@ Alias for strings.Split
 
 See Go's [strings.Split()](http://golang.org/pkg/strings/#Split) for more information.
 
-#### `join`
+### `join`
 
 Alias for strings.Join    
 Takes the given slice of strings as a pipe and joins them on the provided string:
@@ -447,7 +447,7 @@ Takes the given slice of strings as a pipe and joins them on the provided string
 
 See Go's [strings.Join()](http://golang.org/pkg/strings/#Join) for more information.
 
-#### `toLower`
+### `toLower`
 
 Alias for strings.ToLower    
 Takes the argument as a string and converts it to lowercase.
@@ -458,7 +458,7 @@ Takes the argument as a string and converts it to lowercase.
 
 See Go's [strings.ToLower()](http://golang.org/pkg/strings/#ToLower) for more information.
 
-#### `toUpper`
+### `toUpper`
 
 Alias for strings.ToUpper    
 Takes the argument as a string and converts it to uppercase.
@@ -469,13 +469,13 @@ Takes the argument as a string and converts it to uppercase.
 
 See Go's [strings.ToUpper()](http://golang.org/pkg/strings/#ToUpper) for more information.
 
-#### `contains`
+### `contains`
 
 Alias for strings.Contains 
 
 See Go's [strings.Contains()](http://golang.org/pkg/strings/#Contains) for more information.
 
-#### `replace`
+### `replace`
 
 Alias for strings.Replace
 
