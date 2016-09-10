@@ -3,11 +3,12 @@ go-rancher-gen
 [![Latest Version](https://img.shields.io/github/release/janeczku/go-rancher-gen.svg?maxAge=600)][release]
 [![CircleCI](https://img.shields.io/circleci/project/janeczku/go-rancher-gen.svg)][circleci]
 [![Docker Pulls](https://img.shields.io/docker/pulls/janeczku/rancher-gen.svg?maxAge=600)][hub]
-[![License](https://img.shields.io/github/license/janeczku/go-rancher-gen.svg?maxAge=600)]()
+[![License](https://img.shields.io/github/license/janeczku/go-rancher-gen.svg?maxAge=600)][license]
 
 [release]: https://github.com/janeczku/go-rancher-gen/releases
 [circleci]: https://circleci.com/gh/janeczku/go-rancher-gen
-[hub]: https://hub.docker.com/r/janeczku/go-rancher-gen/
+[hub]: https://hub.docker.com/r/janeczku/rancher-gen/
+[license]: LICENSE
 
 `rancher-gen` is a file generator that renders templates using [Rancher Metadata](http://docs.rancher.com/rancher/metadata-service/).
 
@@ -29,21 +30,21 @@ Usage
 
 |       Flag         |            Description         |
 | ------------------ | ------------------------------ |
-| `config`           | Path to an optional config file. Options specified on the CLI take precedence over those in the config file.
+| `config`           | Path to an optional config file. Options specified on the CLI always take precedence.
 | `metadata-version` | Metadata version string used when querying the Rancher Metadata API. Default: `latest`.
 | `include-inactive` | *Not yet implemented*
-| `interval`         | Interval (in seconds) for polling the Metadata API for changes. Default: `5`
-| `onetime`          | Process all templates once and exit. Default: `false`
-| `log-level`        | Verbosity of log output. Valid values: "debug", "info", "warn", and "error". Default: `info`.
-| `check-cmd`        | Command to check the content before updating the destination file. Use the `{{staging}}` placeholder to reference the staging file.
+| `interval`         | Interval (in seconds) for polling the Metadata API for changes. Default: `5`.
+| `onetime`          | Process all templates once and exit. Default: `false`.
+| `log-level`        | Verbosity of log output. Default: `info`.
+| `check-cmd`        | Command to check the content before updating the destination. <br> Use the `{{staging}}` placeholder to reference the staging file.
 | `notify-cmd`       | Command to run after the destination file has been updated.
 | `notify-output`    | Print the result of the notify command to STDOUT.
 | `version`          | Show application version and exit.
 
-#### source
+#### `source`
 Path to the template.
 
-#### dest
+#### `dest`
 Path to the destination file. If omitted, then the generated content is printed to STDOUT.
 
 ### Examples
