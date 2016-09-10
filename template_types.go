@@ -6,6 +6,8 @@ type Service struct {
 	Stack      string
 	Kind       string // service, loadBalancerService
 	Vip        string
+	Fqdn       string
+	Ports      []ServicePort
 	Labels     LabelMap
 	Metadata   MetadataMap
 	Containers []Container
@@ -18,6 +20,7 @@ type Container struct {
 	Stack   string
 	Service string
 	Health  string
+	State   string
 	Labels  LabelMap
 	Host    Host
 }
@@ -36,6 +39,13 @@ type Self struct {
 	Stack    string
 	Service  string
 	HostUUID string
+}
+
+// ServicePort represents a port exposed by a service
+type ServicePort struct {
+	PublicPort   string
+	InternalPort string
+	Protocol     string
 }
 
 // LabelMap contains the labels of a service or host.

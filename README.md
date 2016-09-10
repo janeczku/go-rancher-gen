@@ -1,43 +1,89 @@
-Rancher Template
+go-rancher-gen
 ===============
-[![Latest Version](https://img.shields.io/github/release/janeczku/rancher-template.svg?maxAge=2592000)][release]
-[![CircleCI](https://img.shields.io/circleci/project/janeczku/rancher-template.svg)][circleci]
-[![Docker Pulls](https://img.shields.io/docker/pulls/janeczku/rancher-template.svg?maxAge=2592000)][hub]
-[![License](https://img.shields.io/github/license/janeczku/rancher-template.svg?maxAge=2592000)]()
+[![Latest Version](https://img.shields.io/github/release/janeczku/go-rancher-gen.svg?maxAge=600)][release]
+[![CircleCI](https://img.shields.io/circleci/project/janeczku/go-rancher-gen.svg)][circleci]
+[![Docker Pulls](https://img.shields.io/docker/pulls/janeczku/rancher-gen.svg?maxAge=600)][hub]
+[![License](https://img.shields.io/github/license/janeczku/go-rancher-gen.svg?maxAge=600)]()
 
-[release]: https://github.com/janeczku/rancher-template/releases
-[circleci]: https://circleci.com/gh/janeczku/rancher-template
-[hub]: https://hub.docker.com/r/janeczku/rancher-template/
+[release]: https://github.com/janeczku/go-rancher-gen/releases
+[circleci]: https://circleci.com/gh/janeczku/go-rancher-gen
+[hub]: https://hub.docker.com/r/janeczku/go-rancher-gen/
 
-`rancher-template` is a template rendering tool for the Rancher PaaS.
+`rancher-gen` is a file generator that renders templates using [Rancher Metadata](http://docs.rancher.com/rancher/metadata-service/).
 
-Core features:
+**Core features:**
 
-+ Populates files with service, container and host data from [Rancher's Metadata Service](http://docs.rancher.com/rancher/metadata-service/)
-+ Provides a template syntax that embraces Rancher service discovery as first-class citizen
-+ Supports running arbitrary commands when a file has been updated (e.g. to notify the application consuming the file)
++ Powerful template syntax that embraces [Rancher](http://www.rancher.com) services, containers and hosts as first-class objects
++ Ability to run arbitrary commands when a file has been updated (e.g. to reload an application's configuration)
++ Ability to run check commands on staged files before updating the destination files
++ Ability to specify multiple template sets using a TOML config file
 
-Installation
+Usage
 ------------
 
-`rancher-template` can be bundled with the application consuming the generated files or run in it's own container as a [service sidekick](http://docs.rancher.com/rancher/rancher-compose/#sidekicks) exposing the generated files as a Docker volume.
+### Command Line
 
-### Bundled Application Image
+``` rancher-gen [options] source [dest]```
+
+#### options
+
+|       Flag         |            Description         |
+| ------------------ | ------------------------------ |
+| `config`           | Path to an optional config file. Options specified on the CLI take precedence over those in the config file.
+| `metadata-version` | Metadata version string used when querying the Rancher Metadata API. Default: `latest`.
+| `include-inactive` | *Not yet implemented*
+| `interval`         | Interval (in seconds) for polling the Metadata API for changes. Default: `5`
+| `onetime`          | Process all templates once and exit. Default: `false`
+| `log-level`        | Verbosity of log output. Valid values: "debug", "info", "warn", and "error". Default: `info`.
+| `check-cmd`        | Command to check the content before updating the destination file. Use the `{{staging}}` placeholder to reference the staging file.
+| `notify-cmd`       | Command to run after the destination file has been updated.
+| `notify-output`    | Print the result of the notify command to STDOUT.
+| `version`          | Show application version and exit.
+
+#### source
+Path to the template.
+
+#### dest
+Path to the destination file. If omitted, then the generated content is printed to STDOUT.
+
+### Examples
+
+```
+rancher-gen --onetime --notify-cmd="/usr/sbin/service nginx reload" \
+/etc/rancher-gen/nginx.tmpl /etc/nginx/nginx.conf
+```
+
+```
+rancher-gen --interval 2 --check-cmd="/usr/sbin/nginx -t -c {{staging}}" \
+--notify-cmd="/usr/sbin/service nginx reload" /etc/rancher-gen/nginx.tmpl /etc/nginx/nginx.conf
+```
+
+### Configuration file
+
+You can optionally pass a configuration file to `rancher-gen`. The configuration file is a [TOML](https://github.com/toml-lang/toml) file. It allows you to specify multiple template sets grouped by `template` sections. You can specify the same options as on the command line. Options specified on the command line or via environment variables take precedence over the corresponding values in the configuration file. An example file is available [here](examples/config.toml.sample).
+
+How to dynamically configure your applications with Rancher Metadata
+------------
+
+You can bundle `rancher-gen` with the application image or run it as a [service sidekick](http://docs.rancher.com/rancher/rancher-compose/#sidekicks), that exposes the generated configuration file in a shared volume.
+
+### Bundled with application image
 
 Download the binary from the [release page][release].
-Add the binary to your Docker image and provide a mechanism that executes `rancher-template` on container start, waits until it has generated the target files and then launches the application consuming the files. This functionality could be provided by a bash script that is executed as image `ENTRYPOINT`. Using a container-level process supervisor (e.g. [S6-overlay](https://github.com/just-containers/s6-overlay)) is another option.
+Add the binary to your Docker image and provide a mechanism that runs `rancher-gen` on container start and then executes the main application. This functionality could be provided by a Bash script executed as image `ENTRYPOINT`. If you want to reload the application whenever the Metadata referenced in the template changes, you can use a container process supervisor (e.g. [S6-overlay](https://github.com/just-containers/s6-overlay)) to keep `rancher-gen` running in the background and notify the application when it needs to reload the configuration (by sending it a SIGHUP for example).
 
 ### Sidekick Container
-Create a new Docker image using `janeczku/rancher-template:latest` as base. Add the configuration file and the template(s) to the image. Expose the destination directory of the generated files as `VOLUME`. Pass the configuration file path to `rancher-template` by specifying the corresponding flag in the `CMD` parameter.
+Create a new Docker image using `janeczku/rancher-gen:latest` as base. Add the template(s) and configuration file(s) to the image. Expose the configuration folder as `VOLUME`.
+Run `rancher-gen` on container start, specifying relevant options as command line parameters.
 
-##### Example sidekick image
+##### Example acme/nginx-config sidekick image
 
 ```DOCKERFILE
-FROM janeczku/rancher-template:v0.1.0
-COPY config.toml /etc/rancher-template/
-COPY nginx.tmpl /etc/rancher-template/
+FROM janeczku/rancher-gen:latest
+COPY config.toml /etc/rancher-gen/
+COPY nginx.tmpl /etc/rancher-gen/
 VOLUME /etc/nginx
-CMD ["--config", "/etc/rancher-template/config.toml"]
+CMD ["--config", "/etc/rancher-gen/config.toml"]
 ```
 
 ##### Example Rancher Compose file
@@ -46,48 +92,17 @@ CMD ["--config", "/etc/rancher-template/config.toml"]
 nginx:
   image: nginx:latest
   volumes_from:
-  - template-sidekick
+  - config-sidekick
   labels:
     io.rancher.sidekicks: template-sidekick
-template-sidekick:
-  image: janeczku/rancher-template:latest
+config-sidekick:
+  image: acme/nginx-config
 ```
 
-Usage
+Template Language
 ------------
-
-### Command Line
-
-``` rancher-template [options] template [destination]```
-
-#### options
-
-|       Flag         |            Description         |
-| ------------------ | ------------------------------ |
-| `config`           | Path to a configuration file. Values specified on the CLI take precedence over values specified in the configuration file.
-| `metadata-version` | Metadata version string used when querying the Metadata Service. Default: `latest`.
-| `interval`         | Interval for polling the Metadata Service for changes (in seconds). Default: `60`
-| `onetime`          | Generate all files once and exit. Default: `false`
-| `log-level`        | Verbosity of log output. Valid values: "debug", "info", "warn", and "error". Default: `info`.
-| `notify-cmd`       | Optional command to run after the destination file has been updated.
-| `notify-output`    | Log the result of the notify command
-| `version`          | Print the program version and exit. 
-
-#### template
-Path to the template file
-
-#### destination
-Path to the destination file. If omitted the generated content will be printed to STDOUT.
-
-### Configuration file
-
-Passing a configuration file to `rancher-template` allows for multiple templates to be defined (as opposed to just one via the CLI). The configuration file uses the [TOML](https://github.com/toml-lang/toml) format. It supports the same options as the CLI in addition to one or multiple `template` sections. An example config is available [here](examples/config.toml.sample). 
-
-Templating Language
-------------
-Template files are written in the [Go Template](http://golang.org/pkg/text/template/) format.
-
-In addition to the built-in functions, `rancher-template` exposes additional functions and methods for discovery of Rancher services, containers and hosts.
+Templates are [Go text templates](http://golang.org/pkg/text/template/).
+In addition to the built-in functions, `rancher-gen` exposes functions and methods to easily discover Rancher services, containers and hosts.
 
 ### Service Discovery Objects
 
@@ -97,9 +112,17 @@ type Service struct {
 	Stack       string
 	Kind        string
 	Vip         string
+	Fqdn        string
+	Ports       []Port
 	Labels      LabelMap
 	Metadata    MetadataMap
 	Containers  []Container
+}
+
+type Port struct {
+	PublicPort   string
+	InternalPort string
+	Protocol     string
 }
 
 type Container struct {
@@ -108,6 +131,7 @@ type Container struct {
 	Stack       string
 	Service     string
 	Health      string
+	State       string
 	Labels      LabelMap
 	Host        Host
 }
@@ -390,13 +414,13 @@ Returns the value of the given environment variable or an empty string if the va
 Alias for time.Now
 
 ```liquid
-# Generated by rancher-template {{timestamp}}
+# Generated by rancher-gen {{timestamp}}
 ```
 
 The timestamp can be formatted as required by invoking the `Format` method:
 
 ```liquid
-# Generated by rancher-template {{timestamp.Format "Jan 2, 2006 15:04"}}
+# Generated by rancher-gen {{timestamp.Format "Jan 2, 2006 15:04"}}
 ```
 
 See Go's [time.Format()](http://golang.org/pkg/time/#Time.Format) for more information about formatting the date according to the layout of the reference time.

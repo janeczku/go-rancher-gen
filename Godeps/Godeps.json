@@ -5,8 +5,8 @@
 	"Deps": [
 		{
 			"ImportPath": "github.com/BurntSushi/toml",
-			"Comment": "v0.1.0-46-gbbd5bb6",
-			"Rev": "bbd5bb678321a0d6e58f1099321dfa73391c1b6f"
+			"Comment": "v0.2.0-21-g9906417",
+			"Rev": "99064174e013895bbd9b025c31100bd1d9b590ca"
 		},
 		{
 			"ImportPath": "github.com/Sirupsen/logrus",
@@ -15,11 +15,11 @@
 		},
 		{
 			"ImportPath": "github.com/rancher/go-rancher-metadata/metadata",
-			"Rev": "930aa73750d89be482590dcb2809ce36ba30effe"
+			"Rev": "1e18111ea0df2484398d7c96bb21b6f27f975311"
 		},
 		{
 			"ImportPath": "golang.org/x/sys/unix",
-			"Rev": "eb2c74142fd19a79b3f237334c7384d5167b1b46"
+			"Rev": "30de6d19a3bd89a5f38ae4028e23aaa5582648af"
 		}
 	]
 }

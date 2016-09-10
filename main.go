@@ -10,12 +10,13 @@ import (
 
 var (
 	// Must be set at build time
-	Version string = "Undefined"
-	GitSHA  string = "N/A"
+	Version string = "UNDEFINED"
+	GitSHA  string = "UNDEFINED"
 
 	configFile      string
 	metadataVersion string
 	logLevel        string
+	checkCmd        string
 	notifyCmd       string
 	onetime         bool
 	showVersion     bool
@@ -28,21 +29,22 @@ func init() {
 	log.SetFormatter(&log.TextFormatter{DisableTimestamp: true})
 	log.SetOutput(os.Stdout)
 
-	flag.StringVar(&configFile, "config", "", "Path to config file")
-	flag.StringVar(&metadataVersion, "metadata-version", "latest", "Metadata service version")
-	flag.IntVar(&interval, "interval", 60, "Metadata polling interval (secs)")
-	flag.BoolVar(&includeInactive, "include-inactive", false, "Include inactive services/stopped containers")
-	flag.BoolVar(&onetime, "onetime", false, "Generate file once and exit")
-	flag.StringVar(&logLevel, "log-level", "info", "Level of logging (debug,info,warn,error)")
+	flag.StringVar(&configFile, "config", "", "Path to optional config file")
+	flag.StringVar(&metadataVersion, "metadata-version", "latest", "Metadata version to use for querying the Metadata API")
+	flag.IntVar(&interval, "interval", 60, "Interval (in seconds) for polling the Metadata API for changes")
+	flag.BoolVar(&includeInactive, "include-inactive", false, "Not yet implemented")
+	flag.BoolVar(&onetime, "onetime", false, "Process all templates once and exit")
+	flag.StringVar(&logLevel, "log-level", "info", "Verbosity of log output (debug,info,warn,error)")
+	flag.StringVar(&checkCmd, "check-cmd", "", "Command to check the content before updating the destination file.")
+	flag.StringVar(&notifyCmd, "notify-cmd", "", "Command to run after the destination file has been updated.")
+	flag.BoolVar(&notifyOutput, "notify-output", false, "Print the result of the notify command to STDOUT")
 	flag.BoolVar(&showVersion, "version", false, "Show application version and exit")
-	flag.StringVar(&notifyCmd, "notify-cmd", "", "Optional command to run after generating the file")
-	flag.BoolVar(&notifyOutput, "notify-output", false, "Log the output of the notify command")
 	flag.Usage = printUsage
 	flag.Parse()
 }
 
 func printUsage() {
-	fmt.Println(`Usage: rancher-template [options] source [dest]
+	fmt.Println(`Usage: rancher-gen [options] source [destination]
 
 Options:`)
 	flag.VisitAll(func(fg *flag.Flag) {
@@ -56,7 +58,7 @@ Arguments:
 
 func main() {
 	if showVersion {
-		fmt.Printf("rancher-template %s (%s) \n", Version, GitSHA)
+		fmt.Printf("rancher-gen version %s (%s) \n", Version, GitSHA)
 		os.Exit(0)
 	}
 
@@ -65,7 +67,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	log.Infof("Starting rancher-template %s (%s)", Version, GitSHA)
+	log.Infof("Starting rancher-gen %s (%s)", Version, GitSHA)
 
 	conf, err := initConfig()
 	if err != nil {
@@ -78,6 +80,6 @@ func main() {
 	}
 
 	if err := r.Run(); err != nil {
-		log.Fatal(err.Error())
+		log.Fatal(err)
 	}
 }

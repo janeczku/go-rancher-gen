@@ -7,16 +7,33 @@ import (
 	"net/http"
 )
 
-type Client struct {
+type Client interface {
+	OnChange(int, func(string))
+	SendRequest(string) ([]byte, error)
+	GetVersion() (string, error)
+	GetSelfHost() (Host, error)
+	GetSelfContainer() (Container, error)
+	GetSelfServiceByName(string) (Service, error)
+	GetSelfService() (Service, error)
+	GetSelfStack() (Stack, error)
+	GetServices() ([]Service, error)
+	GetStacks() ([]Stack, error)
+	GetContainers() ([]Container, error)
+	GetServiceContainers(string, string) ([]Container, error)
+	GetHosts() ([]Host, error)
+	GetHost(string) (Host, error)
+}
+
+type client struct {
 	url string
 }
 
-func NewClient(url string) *Client {
-	return &Client{url}
+func NewClient(url string) Client {
+	return &client{url}
 }
 
-func NewClientAndWait(url string) (*Client, error) {
-	client := &Client{url}
+func NewClientAndWait(url string) (Client, error) {
+	client := &client{url}
 
 	if err := testConnection(client); err != nil {
 		return nil, err
@@ -25,7 +42,7 @@ func NewClientAndWait(url string) (*Client, error) {
 	return client, nil
 }
 
-func (m *Client) SendRequest(path string) ([]byte, error) {
+func (m *client) SendRequest(path string) ([]byte, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", m.url+path, nil)
 	req.Header.Add("Accept", "application/json")
@@ -46,7 +63,7 @@ func (m *Client) SendRequest(path string) ([]byte, error) {
 	return body, nil
 }
 
-func (m *Client) GetVersion() (string, error) {
+func (m *client) GetVersion() (string, error) {
 	resp, err := m.SendRequest("/version")
 	if err != nil {
 		return "", err
@@ -54,7 +71,7 @@ func (m *Client) GetVersion() (string, error) {
 	return string(resp[:]), nil
 }
 
-func (m *Client) GetSelfHost() (Host, error) {
+func (m *client) GetSelfHost() (Host, error) {
 	resp, err := m.SendRequest("/self/host")
 	var host Host
 	if err != nil {
@@ -68,7 +85,7 @@ func (m *Client) GetSelfHost() (Host, error) {
 	return host, nil
 }
 
-func (m *Client) GetSelfContainer() (Container, error) {
+func (m *client) GetSelfContainer() (Container, error) {
 	resp, err := m.SendRequest("/self/container")
 	var container Container
 	if err != nil {
@@ -82,7 +99,7 @@ func (m *Client) GetSelfContainer() (Container, error) {
 	return container, nil
 }
 
-func (m *Client) GetSelfServiceByName(name string) (Service, error) {
+func (m *client) GetSelfServiceByName(name string) (Service, error) {
 	resp, err := m.SendRequest("/self/stack/services/" + name)
 	var service Service
 	if err != nil {
@@ -96,7 +113,7 @@ func (m *Client) GetSelfServiceByName(name string) (Service, error) {
 	return service, nil
 }
 
-func (m *Client) GetSelfService() (Service, error) {
+func (m *client) GetSelfService() (Service, error) {
 	resp, err := m.SendRequest("/self/service")
 	var service Service
 	if err != nil {
@@ -110,7 +127,7 @@ func (m *Client) GetSelfService() (Service, error) {
 	return service, nil
 }
 
-func (m *Client) GetSelfStack() (Stack, error) {
+func (m *client) GetSelfStack() (Stack, error) {
 	resp, err := m.SendRequest("/self/stack")
 	var stack Stack
 	if err != nil {
@@ -124,7 +141,7 @@ func (m *Client) GetSelfStack() (Stack, error) {
 	return stack, nil
 }
 
-func (m *Client) GetServices() ([]Service, error) {
+func (m *client) GetServices() ([]Service, error) {
 	resp, err := m.SendRequest("/services")
 	var services []Service
 	if err != nil {
@@ -137,7 +154,7 @@ func (m *Client) GetServices() ([]Service, error) {
 	return services, nil
 }
 
-func (m *Client) GetStacks() ([]Stack, error) {
+func (m *client) GetStacks() ([]Stack, error) {
 	resp, err := m.SendRequest("/stacks")
 	var stacks []Stack
 	if err != nil {
@@ -150,7 +167,7 @@ func (m *Client) GetStacks() ([]Stack, error) {
 	return stacks, nil
 }
 
-func (m *Client) GetContainers() ([]Container, error) {
+func (m *client) GetContainers() ([]Container, error) {
 	resp, err := m.SendRequest("/containers")
 	var containers []Container
 	if err != nil {
@@ -163,7 +180,7 @@ func (m *Client) GetContainers() ([]Container, error) {
 	return containers, nil
 }
 
-func (m *Client) GetServiceContainers(serviceName string, stackName string) ([]Container, error) {
+func (m *client) GetServiceContainers(serviceName string, stackName string) ([]Container, error) {
 	var serviceContainers = []Container{}
 	containers, err := m.GetContainers()
 	if err != nil {
@@ -179,7 +196,7 @@ func (m *Client) GetServiceContainers(serviceName string, stackName string) ([]C
 	return serviceContainers, nil
 }
 
-func (m *Client) GetHosts() ([]Host, error) {
+func (m *client) GetHosts() ([]Host, error) {
 	resp, err := m.SendRequest("/hosts")
 	var hosts []Host
 	if err != nil {
@@ -192,7 +209,7 @@ func (m *Client) GetHosts() ([]Host, error) {
 	return hosts, nil
 }
 
-func (m *Client) GetHost(UUID string) (Host, error) {
+func (m *client) GetHost(UUID string) (Host, error) {
 	var host Host
 	hosts, err := m.GetHosts()
 	if err != nil {

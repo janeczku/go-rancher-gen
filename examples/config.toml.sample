@@ -1,14 +1,14 @@
-metadata-version = "latest"
-include-inactive = false
+metadata-version = "2015-12-19"
 log-level = "debug"
-interval = 60
+interval = 30
 onetime = false
 
 [[template]]
 source = "/etc/rancher-gen/nginx.tmpl"
 dest = "/etc/nginx/nginx.conf"
+check-cmd = "/usr/sbin/nginx -t -c {{staging}}"
 notify-cmd = "/usr/sbin/nginx -s reload"
-notify-output = false
+notify-output = true
 
 [[template]]
 source = "/etc/rancher-gen/apache.tmpl"
