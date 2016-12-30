@@ -15,6 +15,7 @@ var (
 
 	configFile      string
 	metadataVersion string
+	metadataUrl     string
 	logLevel        string
 	checkCmd        string
 	notifyCmd       string
@@ -30,6 +31,7 @@ func init() {
 	log.SetOutput(os.Stdout)
 
 	flag.StringVar(&configFile, "config", "", "Path to optional config file")
+	flag.StringVar(&metadataUrl, "metadata-url", "http://rancher-metadata", "Metadata endpoint to use for querying the Metadata API")
 	flag.StringVar(&metadataVersion, "metadata-version", "latest", "Metadata version to use for querying the Metadata API")
 	flag.IntVar(&interval, "interval", 60, "Interval (in seconds) for polling the Metadata API for changes")
 	flag.BoolVar(&includeInactive, "include-inactive", false, "Not yet implemented")
