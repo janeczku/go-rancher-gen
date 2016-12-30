@@ -21,10 +21,6 @@ import (
 	"github.com/rancher/go-rancher-metadata/metadata"
 )
 
-var (
-	MetadataURL = "http://rancher-metadata"
-)
-
 type runner struct {
 	Config  *Config
 	Client  metadata.Client
@@ -34,7 +30,7 @@ type runner struct {
 }
 
 func NewRunner(conf *Config) (*runner, error) {
-	u, _ := url.Parse(MetadataURL)
+	u, _ := url.Parse(conf.MetadataUrl)
 	u.Path = path.Join(u.Path, conf.MetadataVersion)
 
 	log.Infof("Initializing Rancher Metadata client (version %s)", conf.MetadataVersion)

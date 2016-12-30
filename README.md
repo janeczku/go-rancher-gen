@@ -31,6 +31,7 @@ Usage
 |       Flag         |            Description         |
 | ------------------ | ------------------------------ |
 | `config`           | Path to an optional config file. Options specified on the CLI always take precedence.
+| `metadata-url`     | Metadata endpoint used when querying the Rancher Metadata API. Default: `http://rancher-metadata`
 | `metadata-version` | Metadata version string used when querying the Rancher Metadata API. Default: `latest`.
 | `include-inactive` | *Not yet implemented*
 | `interval`         | Interval (in seconds) for polling the Metadata API for changes. Default: `5`.
