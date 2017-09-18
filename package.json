@@ -1,6 +1,6 @@
 {
   "name": "rancher-conf",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "Rancher metadata template engine",
   "main": "index.js",
   "directories": {
