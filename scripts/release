@@ -1,10 +1,16 @@
 #!/bin/bash
 
-# Add binary to the release, since the docker build requires it
-make build
-
 # Get the new package version
 VERSION=$(node -pe "require('./package.json').version")
+PLATFORM='linux'
+ARCH='amd64'
+
+# Build binary for release
+CGO_ENABLED=0 GOOS=$PLATFORM GOARCH=$ARCH \
+    godep go build \
+      -ldflags "-X main.Version=$VERSION -X main.GitSHA=release" \
+      -o build/rancher-conf-$PLATFORM-$ARCH \
+      ./src
 
 # Update changelog
 git changelog -t $VERSION
