@@ -1,4 +1,9 @@
 
+0.3.2 / 2017-09-18
+==================
+
+  * Build release artifact with correct version
+
 0.3.1 / 2017-09-18
 ==================
 
