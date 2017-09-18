@@ -1,0 +1,31 @@
+{
+  "name": "rancher-conf",
+  "version": "0.2.0",
+  "description": "Rancher metadata template engine",
+  "main": "index.js",
+  "directories": {
+    "example": "examples",
+    "test": "test"
+  },
+  "scripts": {
+    "preversion": "scripts/prerelease",
+    "version": "scripts/release",
+    "postversion": "scripts/postrelease",
+    "publish": "scripts/publish"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/finboxio/rancher-conf.git"
+  },
+  "keywords": [
+    "rancher",
+    "metadata",
+    "template"
+  ],
+  "author": "finbox.io",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/finboxio/rancher-conf/issues"
+  },
+  "homepage": "https://github.com/finboxio/rancher-conf#readme"
+}

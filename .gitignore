@@ -1,8 +1,5 @@
-/bin
 /build
-/dist
-/artifacts
-/test
-rancher-gen
-secrets.txt
+rancher-conf
 .DS_Store
+/test/output
+*.local.yml

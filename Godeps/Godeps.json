@@ -1,5 +1,5 @@
 {
-	"ImportPath": "github.com/janeczku/rancher-gen",
+	"ImportPath": "github.com/finboxio/rancher-conf",
 	"GoVersion": "go1.5",
 	"GodepVersion": "v70",
 	"Deps": [

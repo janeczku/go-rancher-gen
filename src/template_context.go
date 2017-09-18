@@ -15,10 +15,10 @@ func (e NotFoundError) Error() string {
 }
 
 type TemplateContext struct {
-	Services   []Service
-	Containers []Container
-	Hosts      []Host
-	Self       Self
+	Services   []*Service
+	Containers []*Container
+	Hosts      []*Host
+	Self       *Self
 }
 
 // GetHost returns the Host with the given UUID. If the argument is omitted
@@ -29,12 +29,12 @@ func (c *TemplateContext) GetHost(v ...string) (Host, error) {
 		uuid = v[0]
 	}
 	if uuid == "" {
-		uuid = c.Self.HostUUID
+		uuid = c.Self.Host.UUID
 	}
 
 	for _, h := range c.Hosts {
 		if strings.EqualFold(uuid, h.UUID) {
-			return h, nil
+			return *h, nil
 		}
 	}
 
@@ -52,7 +52,7 @@ func (c *TemplateContext) GetService(v ...string) (Service, error) {
 	var stack, service string
 	if identifier == "" {
 		stack = c.Self.Stack
-		service = c.Self.Service
+		service = c.Self.Service.Name
 	} else {
 		parts := strings.Split(identifier, ".")
 		switch len(parts) {
@@ -69,14 +69,14 @@ func (c *TemplateContext) GetService(v ...string) (Service, error) {
 
 	for _, s := range c.Services {
 		if strings.EqualFold(s.Name, service) && strings.EqualFold(s.Stack, stack) {
-			return s, nil
+			return *s, nil
 		}
 	}
 
 	return Service{}, NotFoundError{"(service) could not find service by identifier: " + identifier}
 }
 
-func (c *TemplateContext) GetHosts(selectors ...string) ([]Host, error) {
+func (c *TemplateContext) GetHosts(selectors ...string) ([]*Host, error) {
 	if len(selectors) == 0 {
 		return c.Hosts, nil
 	}
@@ -98,7 +98,7 @@ func (c *TemplateContext) GetHosts(selectors ...string) ([]Host, error) {
 	return filterHostsByLabel(c.Hosts, labels), nil
 }
 
-func (c *TemplateContext) GetServices(selectors ...string) ([]Service, error) {
+func (c *TemplateContext) GetServices(selectors ...string) ([]*Service, error) {
 	if len(selectors) == 0 {
 		return c.Services, nil
 	}
@@ -157,8 +157,8 @@ func inLabelMap(stack, needle LabelMap) bool {
 	return match
 }
 
-func filterHostsByLabel(hosts []Host, labels LabelMap) []Host {
-	result := make([]Host, 0)
+func filterHostsByLabel(hosts []*Host, labels LabelMap) []*Host {
+	result := make([]*Host, 0)
 	for _, h := range hosts {
 		if ok := inLabelMap(h.Labels, labels); ok {
 			result = append(result, h)
@@ -167,8 +167,8 @@ func filterHostsByLabel(hosts []Host, labels LabelMap) []Host {
 	return result
 }
 
-func filterServicesByLabel(services []Service, labels LabelMap) []Service {
-	result := make([]Service, 0)
+func filterServicesByLabel(services []*Service, labels LabelMap) []*Service {
+	result := make([]*Service, 0)
 	for _, s := range services {
 		if ok := inLabelMap(s.Labels, labels); ok {
 			result = append(result, s)
@@ -177,8 +177,8 @@ func filterServicesByLabel(services []Service, labels LabelMap) []Service {
 	return result
 }
 
-func filterServicesByStack(services []Service, stack string) []Service {
-	result := make([]Service, 0)
+func filterServicesByStack(services []*Service, stack string) []*Service {
+	result := make([]*Service, 0)
 	for _, s := range services {
 		if strings.EqualFold(s.Stack, stack) {
 			result = append(result, s)

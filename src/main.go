@@ -14,6 +14,7 @@ var (
 	GitSHA  string = "UNDEFINED"
 
 	configFile      string
+	metadataUrl     string
 	metadataVersion string
 	logLevel        string
 	checkCmd        string
@@ -30,6 +31,7 @@ func init() {
 	log.SetOutput(os.Stdout)
 
 	flag.StringVar(&configFile, "config", "", "Path to optional config file")
+	flag.StringVar(&metadataUrl, "metadata-url", "http://rancher-metadata", "Metadata endpoint to use for querying the Metadata API")
 	flag.StringVar(&metadataVersion, "metadata-version", "latest", "Metadata version to use for querying the Metadata API")
 	flag.IntVar(&interval, "interval", 60, "Interval (in seconds) for polling the Metadata API for changes")
 	flag.BoolVar(&includeInactive, "include-inactive", false, "Not yet implemented")
@@ -44,7 +46,7 @@ func init() {
 }
 
 func printUsage() {
-	fmt.Println(`Usage: rancher-gen [options] source [destination]
+	fmt.Println(`Usage: rancher-conf [options] source [destination]
 
 Options:`)
 	flag.VisitAll(func(fg *flag.Flag) {
@@ -58,7 +60,7 @@ Arguments:
 
 func main() {
 	if showVersion {
-		fmt.Printf("rancher-gen version %s (%s) \n", Version, GitSHA)
+		fmt.Printf("rancher-conf version %s (%s) \n", Version, GitSHA)
 		os.Exit(0)
 	}
 
@@ -67,7 +69,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	log.Infof("Starting rancher-gen %s (%s)", Version, GitSHA)
+	log.Infof("Starting rancher-conf %s (%s)", Version, GitSHA)
 
 	conf, err := initConfig()
 	if err != nil {

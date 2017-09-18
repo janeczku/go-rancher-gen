@@ -1,0 +1,26 @@
+#!/bin/bash
+
+echo "Verifying that local master has all remote work..."
+
+git branch | grep "* master" &> /dev/null || \
+  { echo "Must be on master branch! Aborting." && exit 1; }
+
+git rev-parse @{u} &> /dev/null || \
+  { echo "Upstream is not set for branch! Aborting." && exit 1; }
+
+git remote -v update &> /dev/null
+LOCAL=$(git rev-parse @)
+REMOTE=$(git rev-parse @{u})
+BASE=$(git merge-base @ @{u})
+
+if [[ "$LOCAL" = "" || "$REMOTE" = "" || "$BASE" = "" ]]; then
+  echo "Could not determine repository status! Aborting."
+  exit 1
+fi
+
+if [[ $LOCAL = $REMOTE || $REMOTE = $BASE ]]; then
+  echo "Local master is up-to-date"
+else
+  echo "Local repository is out of sync with remote! Aborting."
+  exit 1
+fi

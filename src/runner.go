@@ -21,10 +21,6 @@ import (
 	"github.com/rancher/go-rancher-metadata/metadata"
 )
 
-var (
-	MetadataURL = "http://rancher-metadata"
-)
-
 type runner struct {
 	Config  *Config
 	Client  metadata.Client
@@ -34,7 +30,7 @@ type runner struct {
 }
 
 func NewRunner(conf *Config) (*runner, error) {
-	u, _ := url.Parse(MetadataURL)
+	u, _ := url.Parse(conf.MetadataUrl)
 	u.Path = path.Join(u.Path, conf.MetadataVersion)
 
 	log.Infof("Initializing Rancher Metadata client (version %s)", conf.MetadataVersion)
@@ -245,7 +241,11 @@ func (r *runner) createContext() (*TemplateContext, error) {
 		return nil, err
 	}
 
-	hosts := make([]Host, 0)
+	self := Self{
+		Stack: metaSelf.StackName,
+	}
+
+	hosts := make([]*Host, 0)
 	for _, h := range metaHosts {
 		host := Host{
 			UUID:     h.UUID,
@@ -254,62 +254,99 @@ func (r *runner) createContext() (*TemplateContext, error) {
 			Hostname: h.Hostname,
 			Labels:   LabelMap(h.Labels),
 		}
-		hosts = append(hosts, host)
+		hosts = append(hosts, &host)
+
+		if h.UUID == metaSelf.HostUUID {
+			self.Host = &host
+		}
 	}
 
-	containers := make([]Container, 0)
-	for _, c := range metaContainers {
-		container := Container{
-			Name:    c.Name,
-			Address: c.PrimaryIp,
-			Stack:   c.StackName,
-			Service: c.ServiceName,
-			Health:  c.HealthState,
-			State:   c.State,
-			Labels:  LabelMap(c.Labels),
+	services := make([]*Service, 0)
+	for _, s := range metaServices {
+		service := Service{
+			Name:       s.Name,
+			Stack:      s.StackName,
+			Kind:       s.Kind,
+			Vip:        s.Vip,
+			Fqdn:       s.Fqdn,
+			Labels:     LabelMap(s.Labels),
+			Metadata:   MetadataMap(s.Metadata),
+			Containers: make([]*Container, 0),
+			Ports:      parseServicePorts(s.Ports),
 		}
+
+		services = append(services, &service)
+
+		if s.Name == metaSelf.ServiceName && s.StackName == metaSelf.StackName {
+			self.Service = &service
+		}
+	}
+
+	sidekickMap := make(map[string]*Container)
+	containers := make([]*Container, 0)
+	for _, c := range metaContainers {
+		labels := LabelMap(c.Labels)
+
+		container := Container{
+			UUID:      c.UUID,
+			Name:      c.Name,
+			Address:   c.PrimaryIp,
+			Stack:     c.StackName,
+			Health:    c.HealthState,
+			State:     c.State,
+			Labels:    labels,
+			Sidekicks: make([]*Container, 0),
+		}
+
 		for _, h := range hosts {
 			if h.UUID == c.HostUUID {
-				container.Host = h
+				host := h
+				container.Host = host
 				break
 			}
 		}
-		containers = append(containers, container)
-	}
 
-	services := make([]Service, 0)
-	for _, s := range metaServices {
-		service := Service{
-			Name:     s.Name,
-			Stack:    s.StackName,
-			Kind:     s.Kind,
-			Vip:      s.Vip,
-			Fqdn:     s.Fqdn,
-			Labels:   LabelMap(s.Labels),
-			Metadata: MetadataMap(s.Metadata),
-		}
-		svcContainers := make([]Container, 0)
-		for _, c := range containers {
-			if c.Stack == s.StackName && c.Service == s.Name {
-				svcContainers = append(svcContainers, c)
+		for _, s := range services {
+			if s.Name == c.ServiceName && s.Stack == c.StackName {
+				service := s
+				service.Containers = append(service.Containers, &container)
+				container.Service = service
+				break
 			}
 		}
-		service.Containers = svcContainers
-		service.Ports = parseServicePorts(s.Ports)
-		services = append(services, service)
+
+		deployment := labels.GetValue("io.rancher.service.deployment.unit")
+		launchConfig := labels.GetValue("io.rancher.service.launch.config")
+		if launchConfig == "io.rancher.service.primary.launch.config" {
+			sidekickMap[deployment] = &container
+		}
+
+		if c.UUID == metaSelf.UUID {
+			self.Container = &container
+		}
+
+		containers = append(containers, &container)
 	}
 
-	self := Self{
-		Stack:    metaSelf.StackName,
-		Service:  metaSelf.ServiceName,
-		HostUUID: metaSelf.HostUUID,
+	for _, c := range containers {
+		launchConfig := c.Labels.GetValue("io.rancher.service.launch.config")
+		deployment := c.Labels.GetValue("io.rancher.service.deployment.unit")
+		parent, hasParent := sidekickMap[deployment]
+		if hasParent && launchConfig != "io.rancher.service.primary.launch.config" {
+			container := c
+			container.Parent = parent
+			container.Service.Parent = parent.Service
+			parent.Sidekicks = append(parent.Sidekicks, container)
+		}
 	}
+
+	log.Debugf("Finished building context")
 
 	ctx := TemplateContext{
+		Hosts:      hosts,
 		Services:   services,
 		Containers: containers,
-		Hosts:      hosts,
-		Self:       self,
+		Self:       &self,
 	}
 
 	return &ctx, nil

@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# Get the new package version
+VERSION=$(node -pe "require('./package.json').version")
+
+# Update changelog
+git changelog -t $VERSION
+
+# Attempt to prevent race where .git/index.lock
+# isn't cleared immediately
+sleep 0.5
+
+git add History.md

@@ -1,0 +1,73 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'exporter-metrics'
+
+scrape_configs:
+  - job_name: 'ContainerMetrics'
+    static_configs:
+    {{- with service "cadvisor-exporter" }}
+    {{- range .Containers }}
+    {{- if eq .State "running" }}
+      - targets:
+        - {{ .Address }}:9104
+        labels:
+          instance: {{ .Host.Name }}
+          {{ range $key, $value := .Host.Labels -}}
+          {{ $key }}: "{{ $value }}"
+          {{ end }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+
+  - job_name: 'HostsMetrics'
+    static_configs:
+    {{- with service "node-exporter" }}
+    {{- range .Containers }}
+    {{- if eq .State "running" }}
+      - targets:
+        - {{ .Address }}:9100
+        labels:
+          instance: {{ .Host.Name }}
+          {{ range $key, $value := .Host.Labels -}}
+          {{ $key }}: "{{ $value }}"
+          {{ end }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+
+  - job_name: 'RancherStatus'
+    static_configs:
+    {{- with service "rancher-exporter" }}
+    {{- range .Containers }}
+    {{- if eq .State "running" }}
+      - targets:
+        - {{ .Address }}:9010
+        labels:
+          instance: {{ .Host.Name }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+
+  {{- with service }}
+  {{- if (.Metadata.GetValue "rancher_metrics") }}
+  {{ with .Metadata.GetValue "rancher_metrics" }}
+  - job_name: 'RancherMetrics'
+    scheme: {{ if .scheme }}{{ .scheme }}{{ else }}http{{ end }}
+    {{ if and .user .password -}}
+    basic_auth:
+      username: '{{ .user }}'
+      password: '{{ .password }}'
+    {{ end -}}
+    static_configs:
+      - targets:
+        - {{ .host }}:{{ if .port }}{{ .port }}{{ else }}9108{{ end }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+
+  - job_name: 'Prometheus'
+    static_configs:
+      - targets:
+        - '127.0.0.1:9090'

@@ -1,0 +1,128 @@
+# Supported Labels:
+#
+# fluentd.pattern = <regex> If not set, all logs will be ignored
+# fluentd.private = true|false (default false) don't send to global label
+# fluentd.ignore = true|false If true, messages will be dropped (evaluated on a per-message basis)
+# fluentd.targets = <stack/service> (default own stack/service)
+#  => this can be overridden on a per-message basis by using an expression pattern that overrides fluentd.targets
+#  => any stack/service in rancher is an available target (though they might not do anything with the messages)
+
+{{ define "store" }}
+{{ if isJSONArray . }}
+{{ range . }}
+<store>
+{{ range $key, $value := . }}
+{{ if eq $key "type" }}@type {{ $value }}
+{{ else }}{{ $key }} {{ $value }}{{ end }}
+{{ end }}
+</store>
+{{ end }}
+{{ else if isJSONObject . }}
+<store>
+{{ range $key, $value := . }}
+{{ if eq $key "type" }}@type {{ $value }}
+{{ else }}{{ $key }} {{ $value }}{{ end }}
+{{ end }}
+</store>
+{{ end }}
+{{ end }}
+
+# Tail all docker container json logs
+<source>
+  @type tail
+  path /var/lib/docker/containers/*/*-json.log
+  pos_file /home/fluent/fluentd-docker.pos
+  tag docker.*
+  format json
+  time_key time
+  time_format %Y-%m-%dT%H:%M:%S.%NZ
+</source>
+
+# Attach container labels & other info
+# This drops messages from containers
+# without fluentd.pattern label
+<filter docker.var.lib.docker.containers.**>
+  @type docker
+  container_id "${tag_parts[5]}"
+  targets_label "io.rancher.stack_service.name"
+</filter>
+
+# Rewrite tag to docker.<container_name> for readability
+<match docker.var.lib.docker.containers.**>
+  @type rewrite_tag
+  rewriterule1 container_name (.+) docker.$1
+</match>
+
+# Concat multiline messages
+# (any line that starts with whitespace
+#  will be joined to the previous message)
+#
+# TODO: allow specification of multiline
+#       pattern in fluentd.multiline label
+
+<filter docker.*>
+  @type concat
+  @log_level warn
+  key log
+  use_first_timestamp true
+  stream_identity_key container_id
+  multiline_start_regexp /^\S+/
+  timeout_label @DEFAULT
+  separator ""
+  flush_interval 2s
+</filter>
+
+# Relabel so that concat successes and
+# timeouts end up in the same pipeline
+<match docker.*>
+  @type relabel
+  @label @DEFAULT
+</match>
+
+<label @DEFAULT>
+  # extract fields from fluentd.pattern
+  <filter docker.*>
+    @type expat
+  </filter>
+  # Fan out to specified target labels
+  <match docker.*>
+    @type fanout
+    targets_key fluentd.targets
+  </match>
+</label>
+
+<label @GLOBAL>
+  <match docker.*>
+    @type copy
+    deep_copy true
+
+    # Default store (in case none specified)
+    <store>
+      @type null
+    </store>
+
+    # Start service-defined global storage
+    {{ range services }}{{ if not .Parent }}
+    {{ if .Metadata.GetValue "fluentd" }}{{ $fluentd := .Metadata.GetValue "fluentd" }}
+    {{ if $fluentd.global }}{{ template "store" $fluentd.global }}{{ end }}
+    {{ end }}{{ end }}{{ end }}
+    # End service-defined global storage
+
+  </match>
+</label>
+
+# Start service-defined pipelines
+{{ range services }}
+{{ $stack := .Stack }}{{ $service := .Name }}
+{{ if not .Parent }}
+<label @{{ $stack }}/{{ $service }}>
+{{ else }}{{ with .Parent }}
+<label @{{ $stack }}/{{ .Name }}/{{ $service }}>
+{{ end }}{{ end }}
+{{ if .Metadata.GetValue "fluentd" }}{{ $fluentd := .Metadata.GetValue "fluentd" }}
+{{ if $fluentd.service }}{{ $fluentd.service }}{{ end }}
+{{ end }}
+</label>
+{{ end }}
+
+# End service-defined pipelines

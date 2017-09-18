@@ -1,0 +1,46 @@
+#!/bin/bash
+
+GITHUB_USER=$(node -pe "require('./package.json').repository.url.split('/')[3]")
+GITHUB_REPO=$(node -pe "require('./package.json').repository.url.split('/')[4].replace('.git', '')")
+CURRENT_BRANCH=$(git symbolic-ref HEAD 2>/dev/null | cut -d"/" -f 3)
+CURRENT_VERSION=$(node -pe "require('./package.json').version")
+PUBLISH_VERSION=${1:-$CURRENT_VERSION}
+
+[[ $PUBLISH_VERSION == *-* ]] && PRERELEASE=1 || PRERELEASE=
+
+git checkout tags/v$PUBLISH_VERSION &> /dev/null || {
+  echo "Failed to checkout version tag!"
+  exit 1
+}
+
+git status | grep "nothing to commit, working directory clean" || {
+  echo "Working directory is not clean!"
+  git checkout $CURRENT_BRANCH &> /dev/null
+  exit 1
+}
+
+if hub release --include-drafts | grep -q "^v${PUBLISH_VERSION}\$"; then
+  echo "Release already exists!"
+  git checkout $CURRENT_BRANCH &> /dev/null
+  open https://github.com/${GITHUB_USER}/${GITHUB_REPO}/releases
+  exit 1
+else
+  echo "Creating release draft for v${PUBLISH_VERSION}"
+
+  RELEASE_NOTES=$(
+    echo "Release ${PUBLISH_VERSION}"
+    echo
+    echo "## Changes"
+    echo
+
+    ./scripts/release-notes
+  )
+
+  RELEASE_URL=$(echo "$RELEASE_NOTES" | hub release create -F - --draft ${PRERELEASE:+--prerelease} "v$PUBLISH_VERSION")
+
+  open $RELEASE_URL
+
+  git checkout $CURRENT_BRANCH &> /dev/null
+fi
+
+

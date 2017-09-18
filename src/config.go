@@ -17,6 +17,7 @@ type Config struct {
 	LogLevel        string     `toml:"log-level"`
 	OneTime         bool       `toml:"onetime"`
 	IncludeInactive bool       `toml:"include-inactive"`
+	MetadataUrl     string     `toml:"metadata-url"`
 	Templates       []Template `toml:"template"`
 }
 
@@ -31,6 +32,7 @@ type Template struct {
 func initConfig() (*Config, error) {
 	config := Config{
 		MetadataVersion: "latest",
+		MetadataUrl:     "http://rancher-metadata.rancher.internal",
 		Interval:        5,
 		LogLevel:        "info",
 	}
@@ -92,6 +94,8 @@ func overwriteConfigFromFlags(conf *Config) {
 		switch f.Name {
 		case "interval":
 			conf.Interval = interval
+		case "metadata-url":
+			conf.MetadataUrl = metadataUrl
 		case "metadata-version":
 			conf.MetadataVersion = metadataVersion
 		case "onetime":
@@ -108,6 +112,9 @@ func overwriteConfigFromEnv(conf *Config) {
 	var env string
 	if env = os.Getenv("RANCHER_GEN_LOGLEVEL"); len(env) > 0 {
 		conf.LogLevel = env
+	}
+	if env = os.Getenv("RANCHER_GEN_METADATA_URL"); len(env) > 0 {
+		conf.MetadataUrl = env
 	}
 	if env = os.Getenv("RANCHER_GEN_INTERVAL"); len(env) > 0 {
 		interval, err := strconv.Atoi(env)

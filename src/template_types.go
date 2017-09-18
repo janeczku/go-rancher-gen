@@ -10,19 +10,23 @@ type Service struct {
 	Ports      []ServicePort
 	Labels     LabelMap
 	Metadata   MetadataMap
-	Containers []Container
+	Containers []*Container
+	Parent     *Service
 }
 
 // Container represents a container belonging to a Rancher Service.
 type Container struct {
-	Name    string
-	Address string
-	Stack   string
-	Service string
-	Health  string
-	State   string
-	Labels  LabelMap
-	Host    Host
+	UUID      string
+	Name      string
+	Address   string
+	Stack     string
+	Health    string
+	State     string
+	Labels    LabelMap
+	Service   *Service
+	Host      *Host
+	Parent    *Container
+	Sidekicks []*Container
 }
 
 // Host represents a Rancher Host.
@@ -36,9 +40,10 @@ type Host struct {
 
 // Self contains information about the container running this application.
 type Self struct {
-	Stack    string
-	Service  string
-	HostUUID string
+	Stack     string
+	Service   *Service
+	Container *Container
+	Host      *Host
 }
 
 // ServicePort represents a port exposed by a service

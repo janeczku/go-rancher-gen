@@ -15,18 +15,21 @@ import (
 func newFuncMap(ctx *TemplateContext) template.FuncMap {
 	return template.FuncMap{
 		// Utility funcs
-		"base":      path.Base,
-		"dir":       path.Dir,
-		"env":       os.Getenv,
-		"timestamp": time.Now,
-		"split":     strings.Split,
-		"join":      strings.Join,
-		"toUpper":   strings.ToUpper,
-		"toLower":   strings.ToLower,
-		"contains":  strings.Contains,
-		"replace":   strings.Replace,
+		"base":         path.Base,
+		"dir":          path.Dir,
+		"env":          os.Getenv,
+		"timestamp":    time.Now,
+		"split":        strings.Split,
+		"join":         strings.Join,
+		"toUpper":      strings.ToUpper,
+		"toLower":      strings.ToLower,
+		"contains":     strings.Contains,
+		"replace":      strings.Replace,
+		"isJSONArray":  isJSONArray,
+		"isJSONObject": isJSONObject,
 
 		// Service funcs
+		"self":              selfFunc(ctx),
 		"host":              hostFunc(ctx),
 		"hosts":             hostsFunc(ctx),
 		"service":           serviceFunc(ctx),
@@ -35,6 +38,13 @@ func newFuncMap(ctx *TemplateContext) template.FuncMap {
 		"whereLabelEquals":  whereLabelEquals,
 		"whereLabelMatches": whereLabelEquals,
 		"groupByLabel":      groupByLabel,
+	}
+}
+
+// selfFunc returns the self object
+func selfFunc(ctx *TemplateContext) func() (interface{}, error) {
+	return func() (result interface{}, err error) {
+		return ctx.Self, nil
 	}
 }
 
@@ -93,25 +103,28 @@ func groupByLabel(label string, in interface{}) (map[string][]interface{}, error
 	}
 
 	switch typed := in.(type) {
-	case []Service:
+	case []*Service:
 		for _, s := range typed {
 			value, ok := s.Labels[label]
 			if ok && len(value) > 0 {
-				m[value] = append(m[value], s)
+				service := s
+				m[value] = append(m[value], service)
 			}
 		}
-	case []Container:
+	case []*Container:
 		for _, c := range typed {
 			value, ok := c.Labels[label]
 			if ok && len(value) > 0 {
-				m[value] = append(m[value], c)
+				container := c
+				m[value] = append(m[value], container)
 			}
 		}
-	case []Host:
+	case []*Host:
 		for _, h := range typed {
 			value, ok := h.Labels[label]
 			if ok && len(value) > 0 {
-				m[value] = append(m[value], h)
+				host := h
+				m[value] = append(m[value], host)
 			}
 		}
 	default:
@@ -131,25 +144,28 @@ func whereLabel(funcName string, in interface{}, label string, test func(string,
 	}
 
 	switch typed := in.(type) {
-	case []Service:
+	case []*Service:
 		for _, s := range typed {
 			value, ok := s.Labels[label]
 			if test(value, ok) {
-				result = append(result, s)
+				service := s
+				result = append(result, service)
 			}
 		}
-	case []Container:
+	case []*Container:
 		for _, c := range typed {
 			value, ok := c.Labels[label]
 			if test(value, ok) {
-				result = append(result, c)
+				container := c
+				result = append(result, container)
 			}
 		}
-	case []Host:
-		for _, s := range typed {
-			value, ok := s.Labels[label]
+	case []*Host:
+		for _, h := range typed {
+			value, ok := h.Labels[label]
 			if test(value, ok) {
-				result = append(result, s)
+				host := h
+				result = append(result, host)
 			}
 		}
 	default:
@@ -183,4 +199,18 @@ func whereLabelMatches(label, pattern string, in interface{}) ([]interface{}, er
 	return whereLabel("whereLabelMatches", in, label, func(value string, ok bool) bool {
 		return ok && rx.MatchString(value)
 	})
+}
+
+func isJSONArray(in interface{}) bool {
+	if _, ok := in.([]interface{}); ok {
+		return true
+	}
+	return false
+}
+
+func isJSONObject(in interface{}) bool {
+	if _, ok := in.(map[string]interface{}); ok {
+		return true
+	}
+	return false
 }

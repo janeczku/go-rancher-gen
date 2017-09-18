@@ -1,0 +1,21 @@
+#!/bin/sh
+
+cat /etc/rancher-conf/prometheus.yml.pre \
+  | yaml2json \
+  | jq -r '.scrape_configs[].static_configs[].labels
+    | keys?
+    | .[]
+    | "-e s/" + . + "/" + gsub("[^A-Za-z0-9_]"; "_") + "/g"' \
+  | sort \
+  | uniq \
+  | xargs -I{} echo " {}" \
+  | tr '\n' ' ' \
+  | xargs sed /etc/rancher-conf/prometheus.yml.pre \
+  | cat > /etc/rancher-conf/prometheus.yml
+
+{{ with self.Container.Parent -}}
+docker ps -q | \
+  xargs docker inspect \
+  | jq -r '.[] | select(.Config.Labels["io.rancher.container.uuid"] == "{{ .UUID }}") | .Id' \
+  | xargs docker kill -s HUP
+{{ end -}}

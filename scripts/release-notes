@@ -1,0 +1,19 @@
+#!/bin/bash
+
+set -e
+
+current_tag=$(git tag | tail -n 1)
+current_version=${current_tag#"v"}
+
+previous_tag=$(hub release --include-drafts | head -n 1)
+previous_version=${previous_tag#"v"}
+
+if [ -z "$previous_tag" ]; then
+  echo "Couldn't detect previous release tag" >&2
+  exit 1
+fi
+
+cat History.md |
+  sed "1,/^${current_version} \//d" |
+  sed -n "/^${previous_version} \//q;p" |
+  grep '^\s*[*]'

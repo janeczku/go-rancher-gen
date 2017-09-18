@@ -1,33 +1,41 @@
-# These env vars have to be set in the CI
-# GITHUB_TOKEN
-# DOCKER_HUB_TOKEN
-
-.PHONY: build deps test release clean push image ci-compile build-dir ci-dist dist-dir ci-release version help
-
-PROJECT := rancher-gen
+DOCKER_USER := finboxio
+DOCKER_IMAGE := rancher-conf
 PLATFORM := linux
 ARCH := amd64
-DOCKER_IMAGE := janeczku/$(PROJECT)
 
-VERSION := $(shell cat VERSION)
-GITSHA := $(shell git rev-parse --short HEAD)
+GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
+GIT_COMMIT := $(shell git rev-parse HEAD)
+GIT_REPO := $(shell git remote -v | grep origin | grep "(fetch)" | awk '{ print $$2 }')
+GIT_DIRTY := $(shell git status --porcelain | wc -l)
+GIT_DIRTY := $(shell if [[ "$(GIT_DIRTY)" -gt "0" ]]; then echo "yes"; else echo "no"; fi)
 
-all: help
+VERSION := $(shell git describe --abbrev=0)
+VERSION_DIRTY := $(shell git log --pretty=format:%h $(VERSION)..HEAD | wc -l | tr -d ' ')
+
+BUILD_COMMIT := $(shell if [[ "$(GIT_DIRTY)" == "yes" ]]; then echo $(GIT_COMMIT)+dev; else echo $(GIT_COMMIT); fi)
+BUILD_COMMIT := $(shell echo $(BUILD_COMMIT) | cut -c1-12)
+BUILD_VERSION := $(shell if [[ "$(VERSION_DIRTY)" -gt "0" ]]; then echo "$(VERSION)-$(BUILD_COMMIT)"; else echo $(VERSION); fi)
+BUILD_VERSION := $(shell if [[ "$(VERSION_DIRTY)" -gt "0" ]] || [[ "$(GIT_DIRTY)" == "yes" ]]; then echo "$(BUILD_VERSION)-dev"; else echo $(BUILD_VERSION); fi)
+BUILD_VERSION := $(shell if [[ "$(GIT_BRANCH)" != "master" ]]; then echo $(GIT_BRANCH)-$(BUILD_VERSION); else echo $(BUILD_VERSION); fi)
+
+DOCKER_IMAGE := $(shell if [[ "$(DOCKER_REGISTRY)" ]]; then echo $(DOCKER_REGISTRY)/$(DOCKER_USER)/$(DOCKER_IMAGE); else echo $(DOCKER_USER)/$(DOCKER_IMAGE); fi)
+DOCKER_VERSION := $(shell echo "$(DOCKER_IMAGE):$(BUILD_VERSION)")
+DOCKER_LATEST := $(shell if [[ "$(VERSION_DIRTY)" -gt "0" ]] || [[ "$(GIT_DIRTY)" == "yes" ]]; then echo "$(DOCKER_IMAGE):dev"; else echo $(DOCKER_IMAGE):latest; fi)
 
 help:
 	@echo "make build - build binary for the target environment"
 	@echo "make deps - install build dependencies"
 	@echo "make vet - run vet & gofmt checks"
 	@echo "make test - run tests"
-	@echo "make clean - Duh!"
-	@echo "make release - tag with version and trigger CI release build"
 	@echo "make image - build release image"
-	@echo "make dev-image - build development image"
-	@echo "make dockerhub - build and push image to Docker Hub"
-	@echo "make version - show app version"
+	@echo "make clean - remove build artifacts"
 
 build: build-dir
-	CGO_ENABLED=0 GOOS=$(PLATFORM) GOARCH=$(ARCH) godep go build -ldflags "-X main.Version=$(VERSION) -X main.GitSHA=$(GITSHA)" -o build/$(PROJECT)-$(PLATFORM)-$(ARCH)
+	CGO_ENABLED=0 GOOS=$(PLATFORM) GOARCH=$(ARCH) \
+		godep go build \
+			-ldflags "-X main.Version=$(BUILD_VERSION) -X main.GitSHA=$(BUILD_COMMIT)" \
+			-o build/rancher-conf-$(PLATFORM)-$(ARCH) \
+			./src
 
 deps:
 	go get github.com/tools/godep
@@ -36,54 +44,39 @@ deps:
 vet:
 	scripts/vet
 
-test:
-	godep go test -v ./...
-
-release:
-	git tag `cat VERSION`
-	git push origin master --tags
+test: build
+	docker-compose -f test/docker-compose.yml -f test/docker-compose.local.yml up --build --force-recreate
 
 clean:
 	go clean
 	rm -fr ./build
-	rm -fr ./dist
-
-dockerhub: image
-	@echo "Pushing $(DOCKER_IMAGE):$(VERSION)"
-	docker push $(DOCKER_IMAGE):$(VERSION)
 
 image:
 	docker build -t $(DOCKER_IMAGE):$(VERSION) -f Dockerfile .
 
-dev-image:
-	docker build -t $(DOCKER_IMAGE):dev -f Dockerfile.dev .
-
-version:
-	@echo $(VERSION) $(GITSHA)
-
-ci-compile: build-dir
-	CGO_ENABLED=0 GOOS=$(PLATFORM) GOARCH=$(ARCH) godep go build -ldflags "-X main.Version=$(VERSION) -X main.GitSHA=$(GITSHA) -w -s" -a -o build/$(PROJECT)-$(PLATFORM)-$(ARCH)/$(PROJECT)
-
 build-dir:
 	@rm -rf build && mkdir build
 
-dist-dir:
-	@rm -rf dist && mkdir dist
+docker.build: build
+	@docker build -t $(DOCKER_VERSION) -t $(DOCKER_LATEST) .
 
-ci-dist: ci-compile dist-dir
-	$(eval FILES := $(shell ls build))
-	@for f in $(FILES); do \
-		(cd $(shell pwd)/build/$$f && tar -cvzf ../../dist/$$f.tar.gz *); \
-		(cd $(shell pwd)/dist && shasum -a 256 $$f.tar.gz > $$f.sha256); \
-		(cd $(shell pwd)/dist && md5sum $$f.tar.gz > $$f.md5); \
-		echo $$f; \
-	done
-	@cp -r $(shell pwd)/dist/* $(CIRCLE_ARTIFACTS)
-	ls $(CIRCLE_ARTIFACTS)
+docker.push: docker.build
+	@docker push $(DOCKER_VERSION)
+	@docker push $(DOCKER_LATEST)
 
-ci-release:
-	@previous_tag=$$(git describe --abbrev=0 --tags $(VERSION)^); \
-	comparison="$$previous_tag..HEAD"; \
-	if [ -z "$$previous_tag" ]; then comparison=""; fi; \
-	changelog=$$(git log $$comparison --oneline --no-merges --reverse); \
-	github-release $(CIRCLE_PROJECT_USERNAME)/$(CIRCLE_PROJECT_REPONAME) $(VERSION) master "**Changelog**<br/>$$changelog" 'dist/*'
+info:
+	@echo "git branch:      $(GIT_BRANCH)"
+	@echo "git commit:      $(GIT_COMMIT)"
+	@echo "git repo:        $(GIT_REPO)"
+	@echo "git dirty:       $(GIT_DIRTY)"
+	@echo "version:         $(VERSION)"
+	@echo "commits since:   $(VERSION_DIRTY)"
+	@echo "build commit:    $(BUILD_COMMIT)"
+	@echo "build version:   $(BUILD_VERSION)"
+	@echo "docker images:   $(DOCKER_VERSION)"
+	@echo "                 $(DOCKER_LATEST)"
+
+version:
+	@echo $(BUILD_VERSION) | tr -d '\r' | tr -d '\n' | tr -d ' '
+
+.PHONY: build deps test clean image build-dir help
