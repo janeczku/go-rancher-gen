@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Add binary to the release, since the docker build requires it
+make build
+
 # Get the new package version
 VERSION=$(node -pe "require('./package.json').version")
 
@@ -10,4 +13,4 @@ git changelog -t $VERSION
 # isn't cleared immediately
 sleep 0.5
 
-git add History.md
+git add build History.md
