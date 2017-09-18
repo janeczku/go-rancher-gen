@@ -2,11 +2,10 @@ rancher-conf
 ===============
 [![Latest Version](https://img.shields.io/github/release/finboxio/rancher-conf.svg?maxAge=600)][release]
 [![Docker Pulls](https://img.shields.io/docker/pulls/finboxio/rancher-conf.svg?maxAge=600)][hub]
-[![License](https://img.shields.io/github/license/finboxio/rancher-conf.svg?maxAge=600)][license]
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 [release]: https://github.com/finboxio/rancher-conf/releases
 [hub]: https://hub.docker.com/r/finboxio/rancher-conf/
-[license]: LICENSE
 
 `rancher-conf` is a file generator that renders templates using [Rancher Metadata](http://docs.rancher.com/rancher/metadata-service/).
 
