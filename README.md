@@ -116,7 +116,8 @@ type Service struct {
 	Ports      []ServicePort
 	Labels     LabelMap
 	Metadata   MetadataMap
-	Containers []Container
+	Containers []*Container
+	Parent     *Service
 }
 
 type Container struct {
@@ -127,8 +128,8 @@ type Container struct {
 	Health    string
 	State     string
 	Labels    LabelMap
-	Service   Service
-	Host      Host
+	Service   *Service
+	Host      *Host
 	Parent    *Container
 	Sidekicks []*Container
 }
@@ -143,9 +144,9 @@ type Host struct {
 
 type Self struct {
 	Stack     string
-	Service   Service
-	Container Container
-	Host      Host
+	Service   *Service
+	Container *Container
+	Host      *Host
 }
 
 type ServicePort struct {

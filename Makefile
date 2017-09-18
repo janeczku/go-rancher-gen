@@ -29,6 +29,7 @@ help:
 	@echo "make test - run tests"
 	@echo "make image - build release image"
 	@echo "make clean - remove build artifacts"
+	@echo "make info - print build details"
 
 build: build-dir
 	CGO_ENABLED=0 GOOS=$(PLATFORM) GOARCH=$(ARCH) \
@@ -76,7 +77,4 @@ info:
 	@echo "docker images:   $(DOCKER_VERSION)"
 	@echo "                 $(DOCKER_LATEST)"
 
-version:
-	@echo $(BUILD_VERSION) | tr -d '\r' | tr -d '\n' | tr -d ' '
-
-.PHONY: build deps test clean image build-dir help
+.PHONY: help build deps vet test clean image build-dir docker.build docker.push info
