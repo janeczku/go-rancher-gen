@@ -36,7 +36,7 @@ else
     ./scripts/release-notes
   )
 
-  RELEASE_URL=$(echo "$RELEASE_NOTES" | hub release create -F - --draft ${PRERELEASE:+--prerelease} -a "./build/rancher-conf-linux-amd64#rancher-conf" "v$PUBLISH_VERSION")
+  RELEASE_URL=$(echo "$RELEASE_NOTES" | hub release create -F - --draft ${PRERELEASE:+--prerelease} -a "./build/rancher-conf-linux-amd64" "v$PUBLISH_VERSION")
 
   open $RELEASE_URL
 
