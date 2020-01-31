@@ -8,7 +8,7 @@ import (
 	"strconv"
 
 	"github.com/BurntSushi/toml"
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 type Config struct {
@@ -24,6 +24,7 @@ type Config struct {
 type Template struct {
 	Source       string `toml:"source"`
 	Dest         string `toml:"dest"`
+	PollCmd      string `toml:"poll-cmd"`
 	CheckCmd     string `toml:"check-cmd"`
 	NotifyCmd    string `toml:"notify-cmd"`
 	NotifyOutput bool   `toml:"notify-output"`
@@ -83,6 +84,7 @@ func setTemplateFromFlags(conf *Config) {
 		Source:       flag.Arg(0),
 		Dest:         flag.Arg(1),
 		CheckCmd:     checkCmd,
+		PollCmd: 			pollCmd,
 		NotifyCmd:    notifyCmd,
 		NotifyOutput: notifyOutput,
 	}

@@ -4,26 +4,6 @@ interval = 10
 onetime = false
 
 [[ template ]]
-source = "/etc/rancher-conf/fluentd/reload.sh.tmpl"
-dest = "/etc/rancher-conf/output/fluentd/reload.sh"
-notify-output = true
-
-[[ template ]]
-source = "/etc/rancher-conf/fluentd/plugins.txt.tmpl"
-dest = "/etc/rancher-conf/output/fluentd/plugins.txt"
-notify-out = true
-
-[[ template ]]
-source = "/etc/rancher-conf/fluentd/fluent.conf.tmpl"
-dest = "/etc/rancher-conf/output/fluentd/fluent.conf"
-notify-out = true
-
-[[ template ]]
-source = "/etc/rancher-conf/prometheus/reload.sh.tmpl"
-dest = "/etc/rancher-conf/output/prometheus/reload.sh"
-notify-output = true
-
-[[ template ]]
-source = "/etc/rancher-conf/prometheus/prometheus.yml.tmpl"
-dest = "/etc/rancher-conf/output/prometheus/prometheus.yml.pre"
+source = "/etc/rancher-conf/entries.txt.tmpl"
+dest = "/etc/rancher-conf/output/entries.txt"
 notify-output = true

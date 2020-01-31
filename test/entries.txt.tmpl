@@ -1,0 +1,86 @@
+{{- define "templated-url" }}
+{{- $safe := (.url | replace "{port}" .port | replace "{index}" (printf "%d" .index) | replace "{environment}" .container.EnvironmentName | replace "{stack}" .container.StackName | replace "{service}" .container.ServiceName | replace "{uuid}" (trunc 8 .container.UUID) | replace "{ip}" (replace "." "-" .container.PrimaryIp)) }}
+{{- $url := url $safe }}
+- id: {{ regexReplaceAll "[^A-Za-z0-9]" $safe "_" }}
+  host: {{ $url.Host }}
+{{- if ne "" $url.Scheme }}
+  scheme: {{ $url.Scheme }}
+{{- end }}
+{{- if ne "" (trimSuffix "/" $url.Path) }}
+  prefix: {{ trimSuffix "/" $url.Path }}
+{{- end }}
+{{- if ne "" $url.Username }}
+  username: {{ $url.Username }}
+{{- end }}
+{{- if ne "" $url.Password }}
+  password: {{ $url.Password }}
+{{- end }}
+{{- end }}
+
+{{- with (service "haproxy2-conf.lb").Parent }}
+  {{- $default_domains := .Metadata.domains }}
+  {{- $frontends := .Metadata.frontends }}
+{{ .Metadata | yaml }}
+entries:
+  {{- $my_stack := .Stack.Name }}
+  {{- $my_service := .Name }}
+  {{- range $i, $service := services }}
+  {{- $config := (unflatten "." $service.Labels) }}
+  {{- if hasKey $config $my_stack }}
+  {{- $stack_labels := get $config $my_stack }}
+  {{- if hasKey $stack_labels $my_service }}
+  {{- $service_labels := get $stack_labels $my_service }}
+  {{- $ports := keys $service_labels }}
+  - stack: {{ .Stack.Name }}
+    service: {{ .Name }}
+    {{- if gt (len $service.Containers) 0 }}
+    containers:
+      {{- range $i, $container := $service.Containers }}
+      {{- if $container.PrimaryIp }}
+      - index: {{ $container.CreateIndex }}
+        ip: {{ $container.PrimaryIp }}
+        state: {{ $container.State }}
+        health: {{ $container.HealthState }}
+        ingress:
+          {{- range $port := $ports }}
+          - port: {{ $port }}
+            {{- $port_config := get $service_labels $port }}
+            {{- if or (gt (len $default_domains) 0) (hasKey $port_config "domain") (hasKey $port_config "domains") }}
+            {{- if hasKey $port_config "frontend" }}
+              {{- $frontend := splitList "/" (get $port_config "frontend") }}
+              {{- if eq (len $frontend) 2 }}
+            frontend:
+              name: {{ get $port_config "frontend" }}
+              port: {{ index $frontend 0 }}
+              protocol: {{ index $frontend 1 }}
+              {{- with $frontends }}
+              {{- if hasKey . (get $port_config "frontend") }}
+              {{- get . (get $port_config "frontend") | yaml | nindent 14 }}
+              {{- end }}
+              {{- end }}
+              {{- end }}
+            {{- end }}
+            domains:
+              {{- range $domain := $default_domains }}
+                {{- include "templated-url" (dict "url" (trim $domain) "index" $i "port" $port "container" $container) | indent 14 }}
+              {{- end }}
+              {{- if hasKey $port_config "domains" }}
+                {{- range $part := split "," (get $port_config "domains") }}
+                {{- include "templated-url" (dict "url" (trim $part) "index" $i "port" $port "container" $container) | indent 14 }}
+                {{- end }}
+              {{- end }}
+              {{- if hasKey $port_config "domain" }}
+                {{- range $part := split "," (get $port_config "domain") }}
+                {{- include "templated-url" (dict "url" (trim $part) "index" $i "port" $port "container" $container) | indent 14 }}
+                {{- end }}
+              {{- end }}
+            {{- end }}
+          {{- end }}
+      {{- end }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+{{- end }}
+

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -18,6 +18,7 @@ var (
 	metadataVersion string
 	logLevel        string
 	checkCmd        string
+	pollCmd         string
 	notifyCmd       string
 	onetime         bool
 	showVersion     bool
@@ -38,6 +39,7 @@ func init() {
 	flag.BoolVar(&onetime, "onetime", false, "Process all templates once and exit")
 	flag.StringVar(&logLevel, "log-level", "info", "Verbosity of log output (debug,info,warn,error)")
 	flag.StringVar(&checkCmd, "check-cmd", "", "Command to check the content before updating the destination file.")
+	flag.StringVar(&pollCmd, "poll-cmd", "", "Command to run after each polling interval.")
 	flag.StringVar(&notifyCmd, "notify-cmd", "", "Command to run after the destination file has been updated.")
 	flag.BoolVar(&notifyOutput, "notify-output", false, "Print the result of the notify command to STDOUT")
 	flag.BoolVar(&showVersion, "version", false, "Show application version and exit")

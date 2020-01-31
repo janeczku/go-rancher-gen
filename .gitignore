@@ -1,3 +1,4 @@
 .DS_Store
 /test/output
 *.local.yml
+rancher-conf

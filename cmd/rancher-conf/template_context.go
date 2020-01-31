@@ -18,7 +18,8 @@ type TemplateContext struct {
 	Services   []*Service
 	Containers []*Container
 	Hosts      []*Host
-	Self       *Self
+	Stacks 		 []*Stack
+	Self       Self
 }
 
 // GetHost returns the Host with the given UUID. If the argument is omitted
@@ -51,14 +52,14 @@ func (c *TemplateContext) GetService(v ...string) (Service, error) {
 	}
 	var stack, service string
 	if identifier == "" {
-		stack = c.Self.Stack
+		stack = c.Self.Stack.Name
 		service = c.Self.Service.Name
 	} else {
 		parts := strings.Split(identifier, ".")
 		switch len(parts) {
 		case 1:
 			service = parts[0]
-			stack = c.Self.Stack
+			stack = c.Self.Stack.Name
 		case 2:
 			service = parts[0]
 			stack = parts[1]
@@ -68,12 +69,34 @@ func (c *TemplateContext) GetService(v ...string) (Service, error) {
 	}
 
 	for _, s := range c.Services {
-		if strings.EqualFold(s.Name, service) && strings.EqualFold(s.Stack, stack) {
+		if strings.EqualFold(s.Name, service) && strings.EqualFold(s.Stack.Name, stack) {
 			return *s, nil
 		}
 	}
 
 	return Service{}, NotFoundError{"(service) could not find service by identifier: " + identifier}
+}
+
+func (c *TemplateContext) GetStack(v ...string) (Stack, error) {
+	identifier := ""
+	if len(v) > 0 {
+		identifier = v[0]
+	}
+
+	var stack string
+	if identifier == "" {
+		stack = c.Self.Stack.Name
+	} else {
+		stack = identifier
+	}
+
+	for _, s := range c.Stacks {
+		if strings.EqualFold(s.Name, stack) {
+			return *s, nil
+		}
+	}
+
+	return Stack{}, NotFoundError{"(stack) could not find stack by identifier: " + identifier}
 }
 
 func (c *TemplateContext) GetHosts(selectors ...string) ([]*Host, error) {
@@ -136,6 +159,10 @@ func (c *TemplateContext) GetServices(selectors ...string) ([]*Service, error) {
 	return services, nil
 }
 
+func (c *TemplateContext) GetStacks() ([]*Stack, error) {
+	return c.Stacks, nil
+}
+
 // returns true if the LabelMap needle is a subset of the LabelMap stack.
 // the needle map may contain regex in it's values.
 func inLabelMap(stack, needle LabelMap) bool {
@@ -180,7 +207,7 @@ func filterServicesByLabel(services []*Service, labels LabelMap) []*Service {
 func filterServicesByStack(services []*Service, stack string) []*Service {
 	result := make([]*Service, 0)
 	for _, s := range services {
-		if strings.EqualFold(s.Stack, stack) {
+		if strings.EqualFold(s.Stack.Name, stack) {
 			result = append(result, s)
 		}
 	}

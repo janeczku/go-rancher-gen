@@ -1,7 +1,0 @@
-version: '2'
-services:
-  metadata:
-    build: ..
-    command: --config /etc/rancher-conf/config.toml
-    volumes:
-      - .:/etc/rancher-conf

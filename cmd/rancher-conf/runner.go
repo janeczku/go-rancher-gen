@@ -16,9 +16,10 @@ import (
 	"syscall"
 	"text/template"
 	"time"
+	"sort"
 
-	log "github.com/Sirupsen/logrus"
-	"github.com/rancher/go-rancher-metadata/metadata"
+	log "github.com/sirupsen/logrus"
+	"github.com/finboxio/go-rancher-metadata/metadata"
 )
 
 type runner struct {
@@ -57,7 +58,7 @@ func (r *runner) Run() error {
 		return r.poll()
 	}
 
-	log.Info("Polling Metadata with %d second interval", r.Config.Interval)
+	log.Infof("Polling Metadata with %d second interval", r.Config.Interval)
 	ticker := time.NewTicker(time.Duration(r.Config.Interval) * time.Second)
 	defer ticker.Stop()
 	for {
@@ -84,6 +85,13 @@ func (r *runner) poll() error {
 
 	if r.Version == newVersion {
 		log.Debug("No changes in Metadata")
+		for _, tmpl := range r.Config.Templates {
+			if tmpl.PollCmd != "" {
+				if err := post(tmpl.PollCmd); err != nil {
+					return fmt.Errorf("Poll command failed: %v", err)
+				}
+			}
+		}
 		return nil
 	}
 
@@ -100,6 +108,11 @@ func (r *runner) poll() error {
 	for _, tmpl := range r.Config.Templates {
 		if err := r.processTemplate(tmplFuncs, tmpl); err != nil {
 			return err
+		}
+		if tmpl.PollCmd != "" {
+			if err := post(tmpl.PollCmd); err != nil {
+				return fmt.Errorf("Poll command failed: %v", err)
+			}
 		}
 	}
 
@@ -124,7 +137,17 @@ func (r *runner) processTemplate(funcs template.FuncMap, t Template) error {
 	}
 
 	name := filepath.Base(t.Source)
-	newTemplate, err := template.New(name).Funcs(funcs).Parse(string(tmplBytes))
+	newTemplate := template.New(name)
+	// copied from: https://github.com/helm/helm/blob/8648ccf5d35d682dcd5f7a9c2082f0aaf071e817/pkg/engine/engine.go#L147-L154
+  funcs["include"] = func(name string, data interface{}) (string, error) {
+      buf := bytes.NewBuffer(nil)
+      if err := newTemplate.ExecuteTemplate(buf, name, data); err != nil {
+          return "", err
+      }
+      return buf.String(), nil
+  }
+
+	newTemplate, err = newTemplate.Funcs(funcs).Parse(string(tmplBytes))
 	if err != nil {
 		log.Fatalf("Could not parse template '%s': %v", t.Source, err)
 	}
@@ -240,104 +263,141 @@ func (r *runner) createContext() (*TemplateContext, error) {
 	if err != nil {
 		return nil, err
 	}
+	metaStacks, err := r.Client.GetStacks()
+	if err != nil {
+		return nil, err
+	}
 
-	self := Self{
-		Stack: metaSelf.StackName,
+	log.Debugf("metaSelf %+v", metaSelf)
+
+	self := Self{}
+
+	stacks := make([]*Stack, 0)
+	stackMap := make(map[string]*Stack)
+	for _, s := range metaStacks {
+		stack := Stack{
+			Stack: 		s,
+			Services: make([]*Service, 0),
+		}
+		stacks = append(stacks, &stack)
+		stackMap[s.Name] = &stack
+
+		if s.Name == metaSelf.StackName {
+			log.Debugf("Setting Self.Stack to %s", s.Name)
+			self.Stack = &stack
+		}
 	}
 
 	hosts := make([]*Host, 0)
+	hostMap := make(map[string]*Host)
 	for _, h := range metaHosts {
 		host := Host{
-			UUID:     h.UUID,
-			Name:     h.Name,
-			Address:  h.AgentIP,
-			Hostname: h.Hostname,
-			Labels:   LabelMap(h.Labels),
+			Host: 			h,
+			Labels: 		LabelMap(h.Labels),
+			Containers: make([]*Container, 0),
 		}
+
 		hosts = append(hosts, &host)
+		hostMap[host.UUID] = &host
 
 		if h.UUID == metaSelf.HostUUID {
+			log.Debugf("Setting Self.Host to %s", h.UUID)
 			self.Host = &host
 		}
 	}
 
 	services := make([]*Service, 0)
+	serviceMap := make(map[string]*Service)
+	sidekickParent := make(map[string]*Service)
 	for _, s := range metaServices {
+		s.StackUUID = stackMap[s.StackName].UUID
+
+		stackServiceName := s.StackName + "." + s.Name
 		service := Service{
-			Name:       s.Name,
-			Stack:      s.StackName,
-			Kind:       s.Kind,
-			Vip:        s.Vip,
-			Fqdn:       s.Fqdn,
-			Labels:     LabelMap(s.Labels),
-			Metadata:   MetadataMap(s.Metadata),
+			Service: 		s,
+			Sidekicks: 	make([]*Service, 0),
 			Containers: make([]*Container, 0),
 			Ports:      parseServicePorts(s.Ports),
+			Labels: 		LabelMap(s.Labels),
+			Links: 			LabelMap(s.Links),
+			Metadata: 	MetadataMap(s.Metadata),
+			Stack: 			stackMap[s.StackName],
+			Primary: 		s.Name == s.PrimaryServiceName,
+			Sidekick: 	s.Name != s.PrimaryServiceName,
 		}
 
 		services = append(services, &service)
+		serviceMap[stackServiceName] = &service
 
-		if s.Name == metaSelf.ServiceName && s.StackName == metaSelf.StackName {
+		for _, sk := range s.Sidekicks {
+			sidekickServiceName := service.Stack.Name + "." + sk
+			sidekickParent[sidekickServiceName] = &service
+		}
+
+		if service.Primary {
+			service.Stack.Services = append(service.Stack.Services, &service)
+		}
+
+		if s.StackName == metaSelf.StackName && s.Name == metaSelf.ServiceName {
+			log.Debugf("Setting Self.Service to %s", s.Name)
 			self.Service = &service
 		}
 	}
 
-	sidekickMap := make(map[string]*Container)
+	for sk, service := range sidekickParent {
+		service.Sidekicks = append(service.Sidekicks, serviceMap[sk])
+		serviceMap[sk].Parent = service
+		log.Debugf("Setting parent of %s to %s", serviceMap[sk].Name, service.Name)
+	}
+
 	containers := make([]*Container, 0)
+	deploymentParent := make(map[string]*Container)
 	for _, c := range metaContainers {
-		labels := LabelMap(c.Labels)
-
+		stackServiceName := c.StackName + "." + c.ServiceName
 		container := Container{
-			UUID:      c.UUID,
-			Name:      c.Name,
-			Address:   c.PrimaryIp,
-			Stack:     c.StackName,
-			Health:    c.HealthState,
-			State:     c.State,
-			Labels:    labels,
-			Sidekicks: make([]*Container, 0),
+			Container: 	c,
+			Ports: 			parseServicePorts(c.Ports),
+			Labels: 		LabelMap(c.Labels),
+			Links: 			LabelMap(c.Links),
+			Primary: 		c.Labels["io.rancher.service.launch.config"] == "io.rancher.service.primary.launch.config",
+			Sidekick: 	c.Labels["io.rancher.service.launch.config"] != "io.rancher.service.primary.launch.config",
+			Service: 		serviceMap[stackServiceName],
+			Host: 			hostMap[c.HostUUID],
+			Sidekicks: 	make([]*Container, 0),
 		}
 
-		for _, h := range hosts {
-			if h.UUID == c.HostUUID {
-				host := h
-				container.Host = host
-				break
-			}
-		}
-
-		for _, s := range services {
-			if s.Name == c.ServiceName && s.Stack == c.StackName {
-				service := s
-				service.Containers = append(service.Containers, &container)
-				container.Service = service
-				break
-			}
-		}
-
-		deployment := labels.GetValue("io.rancher.service.deployment.unit")
-		launchConfig := labels.GetValue("io.rancher.service.launch.config")
-		if launchConfig == "io.rancher.service.primary.launch.config" {
-			sidekickMap[deployment] = &container
+		if container.Primary {
+			deployment := container.Labels.GetValue("io.rancher.service.deployment.unit")
+			deploymentParent[deployment] = &container
 		}
 
 		if c.UUID == metaSelf.UUID {
+			log.Debugf("Setting Self.Container to %s", c.UUID)
 			self.Container = &container
 		}
 
 		containers = append(containers, &container)
 	}
 
-	for _, c := range containers {
-		launchConfig := c.Labels.GetValue("io.rancher.service.launch.config")
-		deployment := c.Labels.GetValue("io.rancher.service.deployment.unit")
-		parent, hasParent := sidekickMap[deployment]
-		if hasParent && launchConfig != "io.rancher.service.primary.launch.config" {
-			container := c
+	sort.Slice(containers, func(i, j int) bool {
+  	return containers[i].CreateIndex < containers[j].CreateIndex
+	})
+
+	for _, container := range containers {
+		deployment := container.Labels.GetValue("io.rancher.service.deployment.unit")
+		parent, hasParent := deploymentParent[deployment]
+		if container.Sidekick && hasParent {
 			container.Parent = parent
 			container.Service.Parent = parent.Service
 			parent.Sidekicks = append(parent.Sidekicks, container)
 		}
+
+		if container.Service != nil {
+			log.Debugf("Adding container %s to service %s", container.Name, container.Service.Name)
+			container.Service.Containers = append(container.Service.Containers, container)
+		}
+
+		container.Host.Containers = append(container.Host.Containers, container)
 	}
 
 	log.Debugf("Finished building context")
@@ -346,7 +406,12 @@ func (r *runner) createContext() (*TemplateContext, error) {
 		Hosts:      hosts,
 		Services:   services,
 		Containers: containers,
-		Self:       &self,
+		Stacks: 		stacks,
+		Self:       self,
+	}
+
+	for _, container := range ctx.Self.Service.Containers {
+		log.Debugf("Self Service Container %s", container.Name)
 	}
 
 	return &ctx, nil
@@ -356,10 +421,22 @@ func (r *runner) createContext() (*TemplateContext, error) {
 func parseServicePorts(ports []string) []ServicePort {
 	var ret []ServicePort
 	for _, port := range ports {
-		if parts := strings.Split(port, ":"); len(parts) == 2 {
+		parts := strings.Split(port, ":")
+		if len(parts) == 2 {
 			public := parts[0]
 			if parts_ := strings.Split(parts[1], "/"); len(parts_) == 2 {
 				ret = append(ret, ServicePort{
+					PublicPort:   public,
+					InternalPort: parts_[0],
+					Protocol:     parts_[1],
+				})
+				continue
+			}
+		} else if len(parts) == 3 {
+			public := parts[1]
+			if parts_ := strings.Split(parts[2], "/"); len(parts_) == 2 {
+				ret = append(ret, ServicePort{
+					BindAddress:  parts[0],
 					PublicPort:   public,
 					InternalPort: parts_[0],
 					Protocol:     parts_[1],
@@ -371,6 +448,19 @@ func parseServicePorts(ports []string) []ServicePort {
 	}
 
 	return ret
+}
+
+func post(command string) error {
+	log.Infof("Executing post-poll cmd '%s'", command)
+	cmd := exec.Command("/bin/sh", "-c", command)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		logCmdOutput(command, out)
+		return err
+	}
+
+	log.Debugf("Poll cmd output: %q", string(out))
+	return nil
 }
 
 func check(command, filePath string) error {
