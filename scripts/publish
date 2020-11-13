@@ -13,7 +13,7 @@ git checkout tags/v$PUBLISH_VERSION &> /dev/null || {
   exit 1
 }
 
-git status | grep "nothing to commit, working directory clean" || {
+git status | grep "nothing to commit, working tree clean" || {
   echo "Working directory is not clean!"
   git checkout $CURRENT_BRANCH &> /dev/null
   exit 1
