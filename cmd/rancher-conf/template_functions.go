@@ -11,6 +11,7 @@ import (
 	"time"
 	"reflect"
 	"strconv"
+	"runtime"
 
 	"github.com/Masterminds/sprig/v3"
 	"github.com/wolfeidau/unflatten"
@@ -36,6 +37,7 @@ func newFuncMap(ctx *TemplateContext) template.FuncMap {
 		"unflatten": 		inflate,
 		"yaml":					toYaml,
 		"url": 					parseUrl,
+		"cpus": 				runtime.NumCPU,
 
 		// Service funcs
 		"self":              selfFunc(ctx),
