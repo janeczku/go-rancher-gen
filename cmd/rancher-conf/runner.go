@@ -397,7 +397,9 @@ func (r *runner) createContext() (*TemplateContext, error) {
 			container.Service.Containers = append(container.Service.Containers, container)
 		}
 
-		container.Host.Containers = append(container.Host.Containers, container)
+		if container.Host != nil {
+			container.Host.Containers = append(container.Host.Containers, container)
+		}
 	}
 
 	log.Debugf("Finished building context")

@@ -31,16 +31,11 @@ help:
 	@echo "make clean - remove build artifacts"
 	@echo "make info - print build details"
 
-build: build-dir
-	CGO_ENABLED=0 GOOS=$(PLATFORM) GOARCH=$(ARCH) \
-		godep go build \
-			-ldflags "-X main.Version=$(BUILD_VERSION) -X main.GitSHA=$(BUILD_COMMIT)" \
-			-o build/rancher-conf-$(PLATFORM)-$(ARCH) \
-			./src
+build: build-dir deps
+	go build -o ./build/rancher-conf ./cmd/rancher-conf
 
 deps:
-	go get github.com/tools/godep
-	go get github.com/c4milo/github-release
+	go mod download
 
 vet:
 	scripts/vet
