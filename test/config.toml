@@ -1,6 +1,6 @@
 metadata-version = "2015-12-19"
 log-level = "debug"
-interval = 10
+interval = 30
 onetime = false
 
 [[ template ]]

@@ -18,13 +18,14 @@ var (
 	metadataVersion string
 	logLevel        string
 	checkCmd        string
-	pollCmd         string
+	updateCmd       string
 	notifyCmd       string
 	onetime         bool
 	showVersion     bool
 	notifyOutput    bool
 	includeInactive bool
 	interval        int
+	selfId          string
 )
 
 func init() {
@@ -34,15 +35,16 @@ func init() {
 	flag.StringVar(&configFile, "config", "", "Path to optional config file")
 	flag.StringVar(&metadataUrl, "metadata-url", "http://rancher-metadata", "Metadata endpoint to use for querying the Metadata API")
 	flag.StringVar(&metadataVersion, "metadata-version", "latest", "Metadata version to use for querying the Metadata API")
-	flag.IntVar(&interval, "interval", 60, "Interval (in seconds) for polling the Metadata API for changes")
+	flag.IntVar(&interval, "interval", 60, "Interval (in seconds) for updateing the Metadata API for changes")
 	flag.BoolVar(&includeInactive, "include-inactive", false, "Not yet implemented")
 	flag.BoolVar(&onetime, "onetime", false, "Process all templates once and exit")
 	flag.StringVar(&logLevel, "log-level", "info", "Verbosity of log output (debug,info,warn,error)")
 	flag.StringVar(&checkCmd, "check-cmd", "", "Command to check the content before updating the destination file.")
-	flag.StringVar(&pollCmd, "poll-cmd", "", "Command to run after each polling interval.")
+	flag.StringVar(&updateCmd, "update-cmd", "", "Command to run after each version update.")
 	flag.StringVar(&notifyCmd, "notify-cmd", "", "Command to run after the destination file has been updated.")
 	flag.BoolVar(&notifyOutput, "notify-output", false, "Print the result of the notify command to STDOUT")
 	flag.BoolVar(&showVersion, "version", false, "Show application version and exit")
+	flag.StringVar(&selfId, "self", "", "Render with context of {id} as self")
 	flag.Usage = printUsage
 	flag.Parse()
 }

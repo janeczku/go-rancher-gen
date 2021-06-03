@@ -19,12 +19,13 @@ type Config struct {
 	IncludeInactive bool       `toml:"include-inactive"`
 	MetadataUrl     string     `toml:"metadata-url"`
 	Templates       []Template `toml:"template"`
+	SelfId          string
 }
 
 type Template struct {
 	Source       string `toml:"source"`
 	Dest         string `toml:"dest"`
-	PollCmd      string `toml:"poll-cmd"`
+	UpdateCmd    string `toml:"version-cmd"`
 	CheckCmd     string `toml:"check-cmd"`
 	NotifyCmd    string `toml:"notify-cmd"`
 	NotifyOutput bool   `toml:"notify-output"`
@@ -84,7 +85,7 @@ func setTemplateFromFlags(conf *Config) {
 		Source:       flag.Arg(0),
 		Dest:         flag.Arg(1),
 		CheckCmd:     checkCmd,
-		PollCmd: 			pollCmd,
+		UpdateCmd:    updateCmd,
 		NotifyCmd:    notifyCmd,
 		NotifyOutput: notifyOutput,
 	}
@@ -106,6 +107,8 @@ func overwriteConfigFromFlags(conf *Config) {
 			conf.IncludeInactive = includeInactive
 		case "log-level":
 			conf.LogLevel = logLevel
+		case "self":
+			conf.SelfId = selfId
 		}
 	})
 }

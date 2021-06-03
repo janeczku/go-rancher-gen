@@ -9,13 +9,11 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path"
 	"path/filepath"
 	"strings"
 	"syscall"
 	"text/template"
-	"time"
 	"sort"
 
 	log "github.com/sirupsen/logrus"
@@ -25,9 +23,6 @@ import (
 type runner struct {
 	Config  *Config
 	Client  metadata.Client
-	Version string
-
-	quitChan chan os.Signal
 }
 
 func NewRunner(conf *Config) (*runner, error) {
@@ -41,88 +36,47 @@ func NewRunner(conf *Config) (*runner, error) {
 		return nil, fmt.Errorf("Failed to initialize Rancher Metadata client: %v", err)
 	}
 
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-
 	return &runner{
 		Config:   conf,
 		Client:   client,
-		Version:  "init",
-		quitChan: c,
 	}, nil
 }
 
 func (r *runner) Run() error {
 	if r.Config.OneTime {
 		log.Info("Processing all templates once.")
-		return r.poll()
-	}
-
-	log.Infof("Polling Metadata with %d second interval", r.Config.Interval)
-	ticker := time.NewTicker(time.Duration(r.Config.Interval) * time.Second)
-	defer ticker.Stop()
-	for {
-		if err := r.poll(); err != nil {
-			log.Error(err)
-		}
-
-		select {
-		case <-ticker.C:
-		case signal := <-r.quitChan:
-			log.Info("Exit requested by signal: ", signal)
-			return nil
-		}
-	}
-}
-
-func (r *runner) poll() error {
-	log.Debug("Checking for metadata change")
-	newVersion, err := r.Client.GetVersion()
-	if err != nil {
-		time.Sleep(time.Second * 2)
-		return fmt.Errorf("Failed to get Metadata version: %v", err)
-	}
-
-	if r.Version == newVersion {
-		log.Debug("No changes in Metadata")
-		for _, tmpl := range r.Config.Templates {
-			if tmpl.PollCmd != "" {
-				if err := post(tmpl.PollCmd); err != nil {
-					return fmt.Errorf("Poll command failed: %v", err)
-				}
-			}
-		}
+		r.processVersion("init")
+		log.Info("All templates processed. Exiting.")
 		return nil
 	}
 
-	log.Debugf("Old version: %s, New Version: %s", r.Version, newVersion)
+	r.Client.OnChange(r.Config.Interval, func (version string) {
+		r.processVersion(version)
+		log.Infof("Processed version %s. Waiting for next update...", version)
+	})
 
-	r.Version = newVersion
+	return nil
+}
+
+func (r *runner) processVersion (version string) {
 	ctx, err := r.createContext()
 	if err != nil {
-		time.Sleep(time.Second * 2)
-		return fmt.Errorf("Failed to create context from Rancher Metadata: %v", err)
+		log.Errorf("Failed to create context from Rancher Metadata: %v", err)
+		return
 	}
 
 	tmplFuncs := newFuncMap(ctx)
 	for _, tmpl := range r.Config.Templates {
 		if err := r.processTemplate(tmplFuncs, tmpl); err != nil {
-			return err
-		}
-		if tmpl.PollCmd != "" {
-			if err := post(tmpl.PollCmd); err != nil {
-				return fmt.Errorf("Poll command failed: %v", err)
+			log.Errorf("Template %s failed: %v", tmpl.Source, err)
+		} else {
+			if tmpl.UpdateCmd != "" {
+				if err := post(tmpl.UpdateCmd); err != nil {
+					log.Errorf("Version command failed: %v", err)
+				}
 			}
 		}
 	}
-
-	if r.Config.OneTime {
-		log.Info("All templates processed. Exiting.")
-	} else {
-		log.Info("All templates processed. Waiting for changes in Metadata...")
-	}
-
-	return nil
 }
 
 func (r *runner) processTemplate(funcs template.FuncMap, t Template) error {
@@ -195,7 +149,7 @@ func (r *runner) processTemplate(funcs template.FuncMap, t Template) error {
 		return fmt.Errorf("Could not write destination file %s: %v", t.Dest, err)
 	}
 
-	log.Info("Destination file %s has been updated", t.Dest)
+	log.Infof("Destination file %s has been updated", t.Dest)
 
 	if t.NotifyCmd != "" {
 		if err := notify(t.NotifyCmd, t.NotifyOutput); err != nil {
@@ -259,14 +213,15 @@ func (r *runner) createContext() (*TemplateContext, error) {
 	if err != nil {
 		return nil, err
 	}
-	metaSelf, err := r.Client.GetSelfContainer()
-	if err != nil {
-		return nil, err
-	}
 	metaStacks, err := r.Client.GetStacks()
 	if err != nil {
 		return nil, err
 	}
+	metaSelf, err := r.Client.GetSelfContainer()
+	if err != nil {
+		return nil, err
+	}
+
 
 	log.Debugf("metaSelf %+v", metaSelf)
 
@@ -371,9 +326,12 @@ func (r *runner) createContext() (*TemplateContext, error) {
 			deploymentParent[deployment] = &container
 		}
 
-		if c.UUID == metaSelf.UUID {
+		if (c.UUID == metaSelf.UUID && r.Config.SelfId == "") || (c.UUID == r.Config.SelfId) {
 			log.Debugf("Setting Self.Container to %s", c.UUID)
 			self.Container = &container
+			self.Service = container.Service
+			self.Stack = container.Service.Stack
+			self.Host = container.Host
 		}
 
 		containers = append(containers, &container)
@@ -393,7 +351,6 @@ func (r *runner) createContext() (*TemplateContext, error) {
 		}
 
 		if container.Service != nil {
-			log.Debugf("Adding container %s to service %s", container.Name, container.Service.Name)
 			container.Service.Containers = append(container.Service.Containers, container)
 		}
 
@@ -453,7 +410,7 @@ func parseServicePorts(ports []string) []ServicePort {
 }
 
 func post(command string) error {
-	log.Infof("Executing post-poll cmd '%s'", command)
+	log.Infof("Executing post-version cmd '%s'", command)
 	cmd := exec.Command("/bin/sh", "-c", command)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -461,7 +418,7 @@ func post(command string) error {
 		return err
 	}
 
-	log.Debugf("Poll cmd output: %q", string(out))
+	log.Debugf("Version cmd output: %q", string(out))
 	return nil
 }
 
