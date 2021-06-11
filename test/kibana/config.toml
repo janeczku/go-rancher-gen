@@ -1,0 +1,7 @@
+metadata-version = "latest"
+log-level = "debug"
+
+[[ template ]]
+source = "./elasticsearch.yml.tmpl"
+dest = "./elasticsearch.yml"
+check-cmd = "sh ./setup.sh"

@@ -2,3 +2,4 @@
 /test/output
 *.local.yml
 rancher-conf
+test/kibana/elasticsearch.yml
