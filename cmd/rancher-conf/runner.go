@@ -281,13 +281,12 @@ func (r *runner) createContext() (*TemplateContext, error) {
     services = append(services, &service)
     serviceMap[stackServiceName] = &service
 
-    for _, sk := range s.Sidekicks {
-      sidekickServiceName := service.Stack.Name + "." + sk
-      sidekickParent[sidekickServiceName] = &service
-    }
-
     if service.Primary {
       service.Stack.Services = append(service.Stack.Services, &service)
+      for _, sk := range s.Sidekicks {
+        sidekickServiceName := service.Stack.Name + "." + sk
+        sidekickParent[sidekickServiceName] = &service
+      }
     }
 
     if s.StackName == metaSelf.StackName && s.Name == metaSelf.ServiceName {
